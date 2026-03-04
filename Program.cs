@@ -5,6 +5,8 @@ var builder = WebApplication.CreateBuilder(args);
 // ========== Services Configuration ==========
 // Enables OpenAPI/Swagger support for interactive API documentation and testing.
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Registers controllers for API endpoints.
 builder.Services.AddControllers();
@@ -19,6 +21,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     // Enables OpenAPI endpoint and interactive Swagger UI for development testing.
+    app.UseSwagger();
+    app.UseSwaggerUI();
     app.MapOpenApi();
 }
 
