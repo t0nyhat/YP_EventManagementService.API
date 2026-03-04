@@ -32,6 +32,25 @@ public class EventsController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Retrieves an event by id.
+    /// </summary>
+    /// <param name="id">Event identifier.</param>
+    /// <returns>Event data if found.</returns>
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult GetEventById(Guid id)
+    {
+        var eventItem = _eventService.GetEventById(id);
+        if (eventItem is null)
+        {
+            return NotFound(new { message = $"Событие с id {id} не найдено." });
+        }
+
+        return Ok(MapToResponse(eventItem));
+    }
+
     private static EventResponse MapToResponse(Event eventItem)
     {
         return new EventResponse
