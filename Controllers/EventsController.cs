@@ -89,16 +89,17 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<EventResponse> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
     {
-        // Additional validation: EndAt must be after StartAt.
-        if (request.EndAt <= request.StartAt)
-        {
-            return BadRequest(new { message = "Дата окочания должна быть позже даты начала события." });
-        }
-
+        // First: Check if the resource exists
         var existingEvent = eventService.GetEventById(id);
         if (existingEvent is null)
         {
             return NotFound(new { message = $"Событие с id {id} не найдено." });
+        }
+
+        // Then: Validate the data
+        if (request.EndAt <= request.StartAt)
+        {
+            return BadRequest(new { message = "Дата окончания должна быть позже даты начала события." });
         }
 
         // Map request to domain model.
@@ -116,7 +117,7 @@ public class EventsController(IEventService eventService) : ControllerBase
     }
 
     /// <summary>
-    /// Delates an event.
+    /// Deletes an event.
     /// </summary>
     /// <param name="id">Event identifier.</param>
     /// <returns>No content on success.</returns>
