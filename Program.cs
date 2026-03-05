@@ -6,7 +6,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Enables OpenAPI/Swagger support for interactive API documentation and testing.
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new()
+    {
+        Title = "Event Management Service API",
+        Version = "v1.0"
+    });
+});
 
 // Registers controllers for API endpoints.
 builder.Services.AddControllers();
@@ -22,7 +29,10 @@ if (app.Environment.IsDevelopment())
 {
     // Enables OpenAPI endpoint and interactive Swagger UI for development testing.
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Event Management Service API v1.0");
+    });
     app.MapOpenApi();
 }
 
