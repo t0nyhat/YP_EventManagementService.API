@@ -14,8 +14,8 @@ public class EventService : IEventService
     /// <inheritdoc />
     public IEnumerable<Event> GetAllEvents()
     {
-        // Returns current in-memory collection.
-        return _events;
+        // Returns a copy to prevent external modification of internal state.
+        return _events.ToList();
     }
 
     /// <inheritdoc />
