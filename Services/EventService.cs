@@ -10,62 +10,80 @@ public class EventService : IEventService
 {
     // In-memory storage for sprint task. Data is lost after app restart.
     private readonly List<Event> _events = [];
+    
+    // Lock object to protect concurrent access to _events collection.
+    private readonly object _lock = new object();
 
     /// <inheritdoc />
     public IEnumerable<Event> GetAllEvents()
     {
-        // Returns a copy to prevent external modification of internal state.
-        return _events.ToList();
+        lock (_lock)
+        {
+            // Returns a copy to prevent external modification of internal state.
+            return _events.ToList();
+        }
     }
 
     /// <inheritdoc />
     public Event? GetEventById(Guid id)
     {
-        // Returns null when event is not found to let API return 404.
-        return _events.FirstOrDefault(item => item.Id == id);
+        lock (_lock)
+        {
+            // Returns null when event is not found to let API return 404.
+            return _events.FirstOrDefault(item => item.Id == id);
+        }
     }
 
     /// <inheritdoc />
     public Event CreateEvent(Event newEvent)
     {
-        // Always generates Id on server side and ignores client-provided Id.
-        newEvent.Id = Guid.NewGuid();
+        lock (_lock)
+        {
+            // Always generates Id on server side and ignores client-provided Id.
+            newEvent.Id = Guid.NewGuid();
 
-        // Adds event to in-memory storage.
-        _events.Add(newEvent);
-        return newEvent;
+            // Adds event to in-memory storage.
+            _events.Add(newEvent);
+            return newEvent;
+        }
     }
 
     /// <inheritdoc />
     public Event? UpdateEvent(Guid id, Event updatedEvent)
     {
-        var existingEvent = GetEventById(id);
-        if (existingEvent is null)
+        lock (_lock)
         {
-            // Returns null when event does not exist.
-            return null;
+            var existingEvent = _events.FirstOrDefault(item => item.Id == id);
+            if (existingEvent is null)
+            {
+                // Returns null when event does not exist.
+                return null;
+            }
+
+            // Updates only mutable fields, keeps original Id.
+            existingEvent.Title = updatedEvent.Title;
+            existingEvent.Description = updatedEvent.Description;
+            existingEvent.StartAt = updatedEvent.StartAt;
+            existingEvent.EndAt = updatedEvent.EndAt;
+
+            return existingEvent;
         }
-
-        // Updates only mutable fields, keeps original Id.
-        existingEvent.Title = updatedEvent.Title;
-        existingEvent.Description = updatedEvent.Description;
-        existingEvent.StartAt = updatedEvent.StartAt;
-        existingEvent.EndAt = updatedEvent.EndAt;
-
-        return existingEvent;
     }
 
     /// <inheritdoc />
     public bool DeleteEvent(Guid id)
     {
-        var existingEvent = GetEventById(id);
-        if (existingEvent is null)
+        lock (_lock)
         {
-            // Returns false when there is nothing to delete.
-            return false;
-        }
+            var existingEvent = _events.FirstOrDefault(item => item.Id == id);
+            if (existingEvent is null)
+            {
+                // Returns false when there is nothing to delete.
+                return false;
+            }
 
-        // True means deletion succeeded.
-        return _events.Remove(existingEvent);
+            // True means deletion succeeded.
+            return _events.Remove(existingEvent);
+        }
     }
 }
