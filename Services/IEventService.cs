@@ -1,3 +1,4 @@
+using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 
@@ -13,6 +14,14 @@ public interface IEventService
     /// </summary>
     /// <returns>A collection of all events.</returns>
     IEnumerable<Event> GetAllEvents();
+
+    /// <summary>
+    /// Retrieves a filtered and paginated list of events.
+    /// </summary>
+    /// <param name="query">Filtering and pagination parameters.</param>
+    /// <returns>A paginated result of events.</returns>
+    /// <exception cref="BusinessValidationException">Thrown when pagination parameters are invalid.</exception>
+    PaginatedResult<Event> GetEvents(GetEventsQuery query);
 
     /// <summary>
     /// Retrieves an event by its unique identifier.

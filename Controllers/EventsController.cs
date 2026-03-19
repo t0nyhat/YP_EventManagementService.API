@@ -22,42 +22,16 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public ActionResult<PaginatedResult<EventResponse>> GetAllEvents([FromQuery] GetEventsQuery query)
     {
-        var events = eventService.GetAllEvents();
-
-        if (!string.IsNullOrWhiteSpace(query.Title))
-        {
-            events = events.Where(eventItem =>
-                eventItem.Title.Contains(query.Title, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (query.From.HasValue)
-        {
-            events = events.Where(eventItem => eventItem.StartAt >= query.From.Value);
-        }
-
-        if (query.To.HasValue)
-        {
-            events = events.Where(eventItem => eventItem.EndAt <= query.To.Value);
-        }
-
-        var totalItems = events.Count();
-        var items = events
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .Select(MapToResponse)
-            .ToArray();
-
-        var totalPages = totalItems == 0
-            ? 0
-            : (int)Math.Ceiling((double)totalItems / query.PageSize);
+        var events = eventService.GetEvents(query);
+        var items = events.Items.Select(MapToResponse).ToArray();
 
         var response = new PaginatedResult<EventResponse>
         {
             Items = items,
-            Page = query.Page,
-            PageSize = query.PageSize,
-            TotalItems = totalItems,
-            TotalPages = totalPages
+            Page = events.Page,
+            PageSize = events.PageSize,
+            TotalItems = events.TotalItems,
+            TotalPages = events.TotalPages
         };
 
         return Ok(response);

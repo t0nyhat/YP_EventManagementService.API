@@ -1,3 +1,4 @@
+using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 
@@ -23,6 +24,57 @@ public class EventService : IEventService
             // Returns a copy to prevent external modification of internal state.
             return _events.ToList();
         }
+    }
+
+    /// <inheritdoc />
+    public PaginatedResult<Event> GetEvents(GetEventsQuery query)
+    {
+        ValidateQuery(query);
+
+        List<Event> snapshot;
+        lock (_lock)
+        {
+            snapshot = _events.ToList();
+        }
+
+        var filteredEvents = snapshot.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(query.Title))
+        {
+            filteredEvents = filteredEvents.Where(eventItem =>
+                eventItem.Title.Contains(query.Title, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (query.From.HasValue)
+        {
+            filteredEvents = filteredEvents.Where(eventItem => eventItem.StartAt >= query.From.Value);
+        }
+
+        if (query.To.HasValue)
+        {
+            filteredEvents = filteredEvents.Where(eventItem => eventItem.EndAt <= query.To.Value);
+        }
+
+        filteredEvents = filteredEvents.OrderBy(eventItem => eventItem.StartAt);
+
+        var totalItems = filteredEvents.Count();
+        var items = filteredEvents
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToArray();
+
+        var totalPages = totalItems == 0
+            ? 0
+            : (int)Math.Ceiling((double)totalItems / query.PageSize);
+
+        return new PaginatedResult<Event>
+        {
+            Items = items,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalItems = totalItems,
+            TotalPages = totalPages
+        };
     }
 
     /// <inheritdoc />
@@ -99,6 +151,24 @@ public class EventService : IEventService
         if (eventItem.EndAt <= eventItem.StartAt)
         {
             throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
+        }
+    }
+
+    private static void ValidateQuery(GetEventsQuery query)
+    {
+        if (query.Page < 1)
+        {
+            throw new BusinessValidationException("Номер страницы должен быть не меньше 1.");
+        }
+
+        if (query.PageSize < 1)
+        {
+            throw new BusinessValidationException("Размер страницы должен быть не меньше 1.");
+        }
+
+        if (query.PageSize > 100)
+        {
+            throw new BusinessValidationException("Размер страницы должен быть не больше 100.");
         }
     }
 }
