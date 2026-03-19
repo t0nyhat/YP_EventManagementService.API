@@ -1,4 +1,5 @@
 using EventManagementService.API.Dtos;
+using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 using EventManagementService.API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +38,7 @@ public class EventsController(IEventService eventService) : ControllerBase
         var eventItem = eventService.GetEventById(id);
         if (eventItem is null)
         {
-            return NotFound(new { message = $"Событие с id {id} не найдено." });
+            throw new NotFoundException($"Событие с id {id} не найдено.");
         }
 
         return Ok(MapToResponse(eventItem));
@@ -56,7 +57,7 @@ public class EventsController(IEventService eventService) : ControllerBase
         // Additional validation: EndAt must be after StartAt.
         if (request.EndAt <= request.StartAt)
         {
-            return BadRequest(new { message = "Дата окончания должна быть позже даты начала события." });
+            throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
         }
 
         // Map request to domain model.
@@ -93,13 +94,13 @@ public class EventsController(IEventService eventService) : ControllerBase
         var existingEvent = eventService.GetEventById(id);
         if (existingEvent is null)
         {
-            return NotFound(new { message = $"Событие с id {id} не найдено." });
+            throw new NotFoundException($"Событие с id {id} не найдено.");
         }
 
         // Then: Validate the data
         if (request.EndAt <= request.StartAt)
         {
-            return BadRequest(new { message = "Дата окончания должна быть позже даты начала события." });
+            throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
         }
 
         // Map request to domain model.
@@ -129,7 +130,7 @@ public class EventsController(IEventService eventService) : ControllerBase
         var isDeleted = eventService.DeleteEvent(id);
         if (!isDeleted)
         {
-            return NotFound(new { message = $"Событие с id {id} не найдено." });
+            throw new NotFoundException($"Событие с id {id} не найдено.");
         }
 
         return NoContent();
