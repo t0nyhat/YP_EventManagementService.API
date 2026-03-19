@@ -13,14 +13,53 @@ namespace EventManagementService.API.Controllers;
 public class EventsController(IEventService eventService) : ControllerBase
 {
     /// <summary>
-    /// Retrieves all events.
+    /// Retrieves a filtered and paginated list of events.
     /// </summary>
-    /// <returns>A list of all events.</returns>
+    /// <param name="query">Filtering and pagination parameters.</param>
+    /// <returns>A paginated list of events.</returns>
     [HttpGet]
-    public ActionResult<IEnumerable<EventResponse>> GetAllEvents()
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<PaginatedResult<EventResponse>> GetAllEvents([FromQuery] GetEventsQuery query)
     {
         var events = eventService.GetAllEvents();
-        var response = events.Select(MapToResponse).ToArray();
+
+        if (!string.IsNullOrWhiteSpace(query.Title))
+        {
+            events = events.Where(eventItem =>
+                eventItem.Title.Contains(query.Title, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (query.From.HasValue)
+        {
+            events = events.Where(eventItem => eventItem.StartAt >= query.From.Value);
+        }
+
+        if (query.To.HasValue)
+        {
+            events = events.Where(eventItem => eventItem.EndAt <= query.To.Value);
+        }
+
+        var totalItems = events.Count();
+        var items = events
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(MapToResponse)
+            .ToArray();
+
+        var totalPages = totalItems == 0
+            ? 0
+            : (int)Math.Ceiling((double)totalItems / query.PageSize);
+
+        var response = new PaginatedResult<EventResponse>
+        {
+            Items = items,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalItems = totalItems,
+            TotalPages = totalPages
+        };
+
         return Ok(response);
     }
 
