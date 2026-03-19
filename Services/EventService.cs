@@ -1,3 +1,4 @@
+using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 
 namespace EventManagementService.API.Services;
@@ -25,18 +26,20 @@ public class EventService : IEventService
     }
 
     /// <inheritdoc />
-    public Event? GetEventById(Guid id)
+    public Event GetEventById(Guid id)
     {
         lock (_lock)
         {
-            // Returns null when event is not found to let API return 404.
-            return _events.FirstOrDefault(item => item.Id == id);
+            return _events.FirstOrDefault(item => item.Id == id)
+                ?? throw new NotFoundException($"Событие с id {id} не найдено.");
         }
     }
 
     /// <inheritdoc />
     public Event CreateEvent(Event newEvent)
     {
+        ValidateEvent(newEvent);
+
         lock (_lock)
         {
             // Always generates Id on server side and ignores client-provided Id.
@@ -49,20 +52,21 @@ public class EventService : IEventService
     }
 
     /// <inheritdoc />
-    public Event? UpdateEvent(Guid id, Event updatedEvent)
+    public Event UpdateEvent(Guid id, Event updatedEvent)
     {
         lock (_lock)
         {
             var existingEvent = _events.FirstOrDefault(item => item.Id == id);
             if (existingEvent is null)
             {
-                // Returns null when event does not exist.
-                return null;
+                throw new NotFoundException($"Событие с id {id} не найдено.");
             }
+
+            ValidateEvent(updatedEvent);
 
             // Updates only mutable fields, keeps original Id.
             existingEvent.Title = updatedEvent.Title;
-            existingEvent.Description = updatedEvent.Description;
+            existingEvent.Description = updatedEvent.Description ?? existingEvent.Description;
             existingEvent.StartAt = updatedEvent.StartAt;
             existingEvent.EndAt = updatedEvent.EndAt;
 
@@ -71,19 +75,30 @@ public class EventService : IEventService
     }
 
     /// <inheritdoc />
-    public bool DeleteEvent(Guid id)
+    public void DeleteEvent(Guid id)
     {
         lock (_lock)
         {
             var existingEvent = _events.FirstOrDefault(item => item.Id == id);
             if (existingEvent is null)
             {
-                // Returns false when there is nothing to delete.
-                return false;
+                throw new NotFoundException($"Событие с id {id} не найдено.");
             }
 
-            // True means deletion succeeded.
-            return _events.Remove(existingEvent);
+            _events.Remove(existingEvent);
+        }
+    }
+
+    private static void ValidateEvent(Event eventItem)
+    {
+        if (string.IsNullOrWhiteSpace(eventItem.Title))
+        {
+            throw new BusinessValidationException("Название события не должно быть пустым.");
+        }
+
+        if (eventItem.EndAt <= eventItem.StartAt)
+        {
+            throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
         }
     }
 }

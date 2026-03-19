@@ -1,5 +1,4 @@
 using EventManagementService.API.Dtos;
-using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 using EventManagementService.API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -36,11 +35,6 @@ public class EventsController(IEventService eventService) : ControllerBase
     public ActionResult<EventResponse> GetEventById(Guid id)
     {
         var eventItem = eventService.GetEventById(id);
-        if (eventItem is null)
-        {
-            throw new NotFoundException($"Событие с id {id} не найдено.");
-        }
-
         return Ok(MapToResponse(eventItem));
     }
 
@@ -54,12 +48,6 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public ActionResult<EventResponse> CreateEvent([FromBody] CreateEventRequest request)
     {
-        // Additional validation: EndAt must be after StartAt.
-        if (request.EndAt <= request.StartAt)
-        {
-            throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
-        }
-
         // Map request to domain model.
         // Safe to use .Value since [Required] validation already passed.
         var eventItem = new Event
@@ -90,31 +78,18 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<EventResponse> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
     {
-        // First: Check if the resource exists
-        var existingEvent = eventService.GetEventById(id);
-        if (existingEvent is null)
-        {
-            throw new NotFoundException($"Событие с id {id} не найдено.");
-        }
-
-        // Then: Validate the data
-        if (request.EndAt <= request.StartAt)
-        {
-            throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
-        }
-
         // Map request to domain model.
         var eventItem = new Event
         {
             Title = request.Title,
-            Description = request.Description ?? existingEvent.Description,
+            Description = request.Description,
             StartAt = request.StartAt!.Value,
             EndAt = request.EndAt!.Value
         };
 
         // Update event.
         var updatedEvent = eventService.UpdateEvent(id, eventItem);
-        return Ok(MapToResponse(updatedEvent!));
+        return Ok(MapToResponse(updatedEvent));
     }
 
     /// <summary>
@@ -127,12 +102,7 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult DeleteEvent(Guid id)
     {
-        var isDeleted = eventService.DeleteEvent(id);
-        if (!isDeleted)
-        {
-            throw new NotFoundException($"Событие с id {id} не найдено.");
-        }
-
+        eventService.DeleteEvent(id);
         return NoContent();
     }
 
