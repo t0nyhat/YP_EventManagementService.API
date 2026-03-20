@@ -29,9 +29,8 @@ public class EventsController(IEventService eventService) : ControllerBase
         {
             Items = items,
             Page = events.Page,
-            PageSize = events.PageSize,
-            TotalItems = events.TotalItems,
-            TotalPages = events.TotalPages
+            Count = events.Count,
+            TotalCount = events.TotalCount
         };
 
         return Ok(response);

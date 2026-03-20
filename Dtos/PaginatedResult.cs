@@ -17,17 +17,12 @@ public class PaginatedResult<T>
     public int Page { get; set; }
 
     /// <summary>
-    /// Number of items requested per page.
+    /// Number of items returned for the current page.
     /// </summary>
-    public int PageSize { get; set; }
+    public int Count { get; set; }
 
     /// <summary>
     /// Total number of items after filtering and before pagination.
     /// </summary>
-    public int TotalItems { get; set; }
-
-    /// <summary>
-    /// Total number of pages for the filtered result.
-    /// </summary>
-    public int TotalPages { get; set; }
+    public int TotalCount { get; set; }
 }

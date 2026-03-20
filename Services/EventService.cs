@@ -57,23 +57,18 @@ public class EventService : IEventService
 
         filteredEvents = filteredEvents.OrderBy(eventItem => eventItem.StartAt);
 
-        var totalItems = filteredEvents.Count();
+        var totalCount = filteredEvents.Count();
         var items = filteredEvents
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
             .ToArray();
 
-        var totalPages = totalItems == 0
-            ? 0
-            : (int)Math.Ceiling((double)totalItems / query.PageSize);
-
         return new PaginatedResult<Event>
         {
             Items = items,
             Page = query.Page,
-            PageSize = query.PageSize,
-            TotalItems = totalItems,
-            TotalPages = totalPages
+            Count = items.Length,
+            TotalCount = totalCount
         };
     }
 
