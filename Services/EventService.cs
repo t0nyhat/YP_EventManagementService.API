@@ -17,16 +17,6 @@ public class EventService : IEventService
     private readonly object _lock = new object();
 
     /// <inheritdoc />
-    public IEnumerable<Event> GetAllEvents()
-    {
-        lock (_lock)
-        {
-            // Returns a copy to prevent external modification of internal state.
-            return _events.ToList();
-        }
-    }
-
-    /// <inheritdoc />
     public PaginatedResult<Event> GetEvents(GetEventsQuery query)
     {
         ValidateQuery(query);

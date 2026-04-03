@@ -1,3 +1,4 @@
+using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Services;
 
@@ -28,7 +29,7 @@ public class EventServiceCrudTests
     }
 
     [Fact]
-    public void GetAllEvents_WhenEventsExist_ReturnsAllEvents()
+    public void GetEvents_WhenEventsExist_ReturnsAllEventsOnSinglePage()
     {
         // Arrange
         var service = new EventService();
@@ -44,10 +45,16 @@ public class EventServiceCrudTests
             endAt: new DateTime(2026, 5, 2, 15, 0, 0)));
 
         // Act
-        var events = service.GetAllEvents().ToArray();
+        var result = service.GetEvents(new GetEventsQuery
+        {
+            Page = 1,
+            PageSize = 10
+        });
+        var events = result.Items.ToArray();
 
         // Assert
         Assert.Equal(2, events.Length);
+        Assert.Equal(2, result.TotalCount);
         Assert.Equal(firstEvent.Id, events[0].Id);
         Assert.Equal(secondEvent.Id, events[1].Id);
     }
@@ -139,9 +146,11 @@ public class EventServiceCrudTests
 
         // Act
         service.DeleteEvent(createdEvent.Id);
+        var result = service.GetEvents(new GetEventsQuery());
 
         // Assert
-        Assert.Empty(service.GetAllEvents());
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
         Assert.Throws<NotFoundException>(() => service.GetEventById(createdEvent.Id));
     }
 

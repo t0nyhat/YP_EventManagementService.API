@@ -10,12 +10,6 @@ namespace EventManagementService.API.Services;
 public interface IEventService
 {
     /// <summary>
-    /// Retrieves a list of all events.
-    /// </summary>
-    /// <returns>A collection of all events.</returns>
-    IEnumerable<Event> GetAllEvents();
-
-    /// <summary>
     /// Retrieves a filtered and paginated list of events.
     /// </summary>
     /// <param name="query">Filtering and pagination parameters.</param>
