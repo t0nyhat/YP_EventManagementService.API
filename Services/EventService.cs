@@ -113,7 +113,7 @@ public class EventService : IEventService
 
             // Updates only mutable fields, keeps original Id.
             existingEvent.Title = updatedEvent.Title;
-            existingEvent.Description = updatedEvent.Description ?? existingEvent.Description;
+            existingEvent.Description = updatedEvent.Description;
             existingEvent.StartAt = updatedEvent.StartAt;
             existingEvent.EndAt = updatedEvent.EndAt;
 

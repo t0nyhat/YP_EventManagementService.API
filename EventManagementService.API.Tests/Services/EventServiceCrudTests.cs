@@ -100,6 +100,33 @@ public class EventServiceCrudTests
     }
 
     [Fact]
+    public void UpdateEvent_WhenDescriptionIsNull_ClearsDescription()
+    {
+        // Arrange
+        var service = new EventService();
+        var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
+            title: "Событие с описанием",
+            description: "Описание будет очищено",
+            startAt: new DateTime(2026, 7, 5, 10, 0, 0),
+            endAt: new DateTime(2026, 7, 5, 12, 0, 0)));
+        var updatedEvent = EventTestData.CreateEvent(
+            title: "Событие без описания",
+            description: null,
+            startAt: new DateTime(2026, 7, 6, 13, 0, 0),
+            endAt: new DateTime(2026, 7, 6, 15, 0, 0));
+
+        // Act
+        var result = service.UpdateEvent(createdEvent.Id, updatedEvent);
+
+        // Assert
+        Assert.Equal(createdEvent.Id, result.Id);
+        Assert.Equal("Событие без описания", result.Title);
+        Assert.Null(result.Description);
+        Assert.Equal(new DateTime(2026, 7, 6, 13, 0, 0), result.StartAt);
+        Assert.Equal(new DateTime(2026, 7, 6, 15, 0, 0), result.EndAt);
+    }
+
+    [Fact]
     public void DeleteEvent_WhenEventExists_RemovesEventFromStorage()
     {
         // Arrange
