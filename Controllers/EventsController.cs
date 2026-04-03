@@ -1,5 +1,5 @@
 using EventManagementService.API.Dtos;
-using EventManagementService.API.Models;
+using EventManagementService.API.Mappings;
 using EventManagementService.API.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,18 +22,7 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public ActionResult<PaginatedResult<EventResponse>> GetAllEvents([FromQuery] GetEventsQuery query)
     {
-        var events = eventService.GetEvents(query);
-        var items = events.Items.Select(MapToResponse).ToArray();
-
-        var response = new PaginatedResult<EventResponse>
-        {
-            Items = items,
-            Page = events.Page,
-            Count = events.Count,
-            TotalCount = events.TotalCount
-        };
-
-        return Ok(response);
+        return Ok(eventService.GetEvents(query).ToResponse());
     }
 
     /// <summary>
@@ -46,8 +35,7 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<EventResponse> GetEventById(Guid id)
     {
-        var eventItem = eventService.GetEventById(id);
-        return Ok(MapToResponse(eventItem));
+        return Ok(eventService.GetEventById(id).ToResponse());
     }
 
     /// <summary>
@@ -60,21 +48,11 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public ActionResult<EventResponse> CreateEvent([FromBody] CreateEventRequest request)
     {
-        // Map request to domain model.
-        // Safe to use .Value since [Required] validation already passed.
-        var eventItem = new Event
-        {
-            Title = request.Title,
-            Description = request.Description,
-            StartAt = request.StartAt!.Value,
-            EndAt = request.EndAt!.Value
-        };
-
         // Create event (service generates Id).
-        var createdEvent = eventService.CreateEvent(eventItem);
+        var createdEvent = eventService.CreateEvent(request.ToModel());
 
         // Return 201 Created with Location header pointing to the created resource.
-        var response = MapToResponse(createdEvent);
+        var response = createdEvent.ToResponse();
         return CreatedAtAction(nameof(GetEventById), new { id = createdEvent.Id }, response);
     }
 
@@ -90,18 +68,8 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<EventResponse> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
     {
-        // Map request to domain model.
-        var eventItem = new Event
-        {
-            Title = request.Title,
-            Description = request.Description,
-            StartAt = request.StartAt!.Value,
-            EndAt = request.EndAt!.Value
-        };
-
         // Update event.
-        var updatedEvent = eventService.UpdateEvent(id, eventItem);
-        return Ok(MapToResponse(updatedEvent));
+        return Ok(eventService.UpdateEvent(id, request.ToModel()).ToResponse());
     }
 
     /// <summary>
@@ -116,17 +84,5 @@ public class EventsController(IEventService eventService) : ControllerBase
     {
         eventService.DeleteEvent(id);
         return NoContent();
-    }
-
-    private static EventResponse MapToResponse(Event eventItem)
-    {
-        return new EventResponse
-        {
-            Id = eventItem.Id,
-            Title = eventItem.Title,
-            Description = eventItem.Description,
-            StartAt = eventItem.StartAt,
-            EndAt = eventItem.EndAt
-        };
     }
 }
