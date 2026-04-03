@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc;
+
 namespace EventManagementService.API.Dtos;
 
 /// <summary>
@@ -9,5 +11,6 @@ public class CreateBookingRequest
     /// <summary>
     /// Identifier of the event to book.
     /// </summary>
+    [FromRoute(Name = "id")]
     public Guid EventId { get; set; }
 }
