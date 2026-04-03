@@ -46,6 +46,25 @@ public class EventServiceQueryTests
     }
 
     [Fact]
+    public void GetEvents_WhenTitleContainsOnlyWhitespace_IgnoresTitleFilter()
+    {
+        // Arrange
+        var service = CreateServiceWithSampleEvents();
+
+        // Act
+        var result = service.GetEvents(new GetEventsQuery
+        {
+            Title = "   "
+        });
+
+        // Assert
+        var items = result.Items.ToArray();
+        Assert.Equal(5, result.TotalCount);
+        Assert.Equal(5, result.Count);
+        Assert.Equal(5, items.Length);
+    }
+
+    [Fact]
     public void GetEvents_WhenFilteredByDates_ReturnsOnlyEventsInRequestedRange()
     {
         // Arrange
@@ -71,6 +90,28 @@ public class EventServiceQueryTests
             Assert.True(item.StartAt >= new DateTime(2026, 5, 2, 0, 0, 0));
             Assert.True(item.EndAt <= new DateTime(2026, 5, 4, 23, 59, 59));
         });
+    }
+
+    [Fact]
+    public void GetEvents_WhenDateRangeMatchesEventBoundaries_IncludesEventOnBoundary()
+    {
+        // Arrange
+        var service = CreateServiceWithSampleEvents();
+
+        // Act
+        var result = service.GetEvents(new GetEventsQuery
+        {
+            From = new DateTime(2026, 5, 2, 10, 0, 0),
+            To = new DateTime(2026, 5, 2, 13, 0, 0)
+        });
+
+        // Assert
+        var item = Assert.Single(result.Items);
+        Assert.Equal("DotNet Advanced", item.Title);
+        Assert.Equal(new DateTime(2026, 5, 2, 10, 0, 0), item.StartAt);
+        Assert.Equal(new DateTime(2026, 5, 2, 13, 0, 0), item.EndAt);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.Count);
     }
 
     [Fact]
