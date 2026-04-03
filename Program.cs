@@ -1,3 +1,4 @@
+using EventManagementService.API.BackgroundServices;
 using EventManagementService.API.Middleware;
 using EventManagementService.API.Services;
 using EventManagementService.API.Stores;
@@ -48,6 +49,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddSingleton<IEventService, EventService>();
 builder.Services.AddSingleton<IBookingStore, InMemoryBookingStore>();
 builder.Services.AddSingleton<IBookingService, BookingService>();
+builder.Services.AddHostedService<BookingProcessingBackgroundService>();
 
 var app = builder.Build();
 
