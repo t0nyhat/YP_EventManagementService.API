@@ -53,7 +53,7 @@ public class Booking
     {
         if (eventId == Guid.Empty)
         {
-            throw new ArgumentException("Event id must be provided.", nameof(eventId));
+            throw new ArgumentException("Идентификатор события должен быть указан.", nameof(eventId));
         }
 
         return new Booking(
@@ -82,11 +82,20 @@ public class Booking
         SetProcessedState(BookingStatus.Rejected, processedAt ?? DateTime.UtcNow);
     }
 
+    /// <summary>
+    /// Creates a detached copy of the current booking state.
+    /// </summary>
+    /// <returns>A copy of the booking.</returns>
+    internal Booking Snapshot()
+    {
+        return new Booking(Id, EventId, Status, CreatedAt, ProcessedAt);
+    }
+
     private void SetProcessedState(BookingStatus targetStatus, DateTime processedAt)
     {
         if (Status != BookingStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending bookings can be processed.");
+            throw new InvalidOperationException("Обрабатывать можно только бронирования в статусе ожидания.");
         }
 
         Status = targetStatus;
