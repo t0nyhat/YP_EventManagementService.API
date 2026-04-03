@@ -127,6 +127,25 @@ public class EventServiceValidationTests
     }
 
     [Fact]
+    public void GetEvents_WhenFromIsLaterThanTo_ThrowsBusinessValidationException()
+    {
+        // Arrange
+        var service = new EventService();
+
+        // Act
+        var action = () => service.GetEvents(new GetEventsQuery
+        {
+            From = new DateTime(2026, 11, 5, 0, 0, 0),
+            To = new DateTime(2026, 11, 4, 23, 59, 59),
+            Page = 1,
+            PageSize = 10
+        });
+
+        // Assert
+        Assert.Throws<BusinessValidationException>(action);
+    }
+
+    [Fact]
     public void GetEvents_WhenPageSizeIsGreaterThanHundred_ThrowsBusinessValidationException()
     {
         // Arrange

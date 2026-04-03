@@ -152,6 +152,11 @@ public class EventService : IEventService
 
     private static void ValidateQuery(GetEventsQuery query)
     {
+        if (query.From.HasValue && query.To.HasValue && query.From.Value > query.To.Value)
+        {
+            throw new BusinessValidationException("Дата начала диапазона не должна быть позже даты окончания.");
+        }
+
         if (query.Page < 1)
         {
             throw new BusinessValidationException("Номер страницы должен быть не меньше 1.");
