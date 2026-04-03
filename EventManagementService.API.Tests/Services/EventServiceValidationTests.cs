@@ -1,6 +1,7 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Services;
+using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Services;
 
@@ -16,7 +17,7 @@ public class EventServiceValidationTests
         var action = () => service.GetEventById(Guid.NewGuid());
 
         // Assert
-        Assert.Throws<NotFoundException>(action);
+        action.Should().Throw<NotFoundException>();
     }
 
     [Fact]
@@ -34,7 +35,7 @@ public class EventServiceValidationTests
         var action = () => service.UpdateEvent(Guid.NewGuid(), updatedEvent);
 
         // Assert
-        Assert.Throws<NotFoundException>(action);
+        action.Should().Throw<NotFoundException>();
     }
 
     [Fact]
@@ -47,7 +48,7 @@ public class EventServiceValidationTests
         var action = () => service.DeleteEvent(Guid.NewGuid());
 
         // Assert
-        Assert.Throws<NotFoundException>(action);
+        action.Should().Throw<NotFoundException>();
     }
 
     [Fact]
@@ -65,7 +66,8 @@ public class EventServiceValidationTests
         var action = () => service.CreateEvent(invalidEvent);
 
         // Assert
-        Assert.Throws<BusinessValidationException>(action);
+        action.Should().Throw<BusinessValidationException>()
+            .WithMessage("Название события не должно быть пустым.");
     }
 
     [Fact]
@@ -83,7 +85,8 @@ public class EventServiceValidationTests
         var action = () => service.CreateEvent(invalidEvent);
 
         // Assert
-        Assert.Throws<BusinessValidationException>(action);
+        action.Should().Throw<BusinessValidationException>()
+            .WithMessage("Дата окончания должна быть позже даты начала события.");
     }
 
     [Fact]
@@ -106,7 +109,8 @@ public class EventServiceValidationTests
         var action = () => service.UpdateEvent(createdEvent.Id, invalidEvent);
 
         // Assert
-        Assert.Throws<BusinessValidationException>(action);
+        action.Should().Throw<BusinessValidationException>()
+            .WithMessage("Дата окончания должна быть позже даты начала события.");
     }
 
     [Fact]
@@ -123,7 +127,7 @@ public class EventServiceValidationTests
         });
 
         // Assert
-        Assert.Throws<BusinessValidationException>(action);
+        action.Should().Throw<BusinessValidationException>();
     }
 
     [Fact]
@@ -142,7 +146,8 @@ public class EventServiceValidationTests
         });
 
         // Assert
-        Assert.Throws<BusinessValidationException>(action);
+        action.Should().Throw<BusinessValidationException>()
+            .WithMessage("Дата начала диапазона не должна быть позже даты окончания.");
     }
 
     [Fact]
@@ -159,6 +164,6 @@ public class EventServiceValidationTests
         });
 
         // Assert
-        Assert.Throws<BusinessValidationException>(action);
+        action.Should().Throw<BusinessValidationException>();
     }
 }

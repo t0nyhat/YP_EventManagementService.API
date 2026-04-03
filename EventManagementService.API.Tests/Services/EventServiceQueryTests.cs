@@ -1,5 +1,6 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Services;
+using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Services;
 
@@ -19,10 +20,10 @@ public class EventServiceQueryTests
 
         // Assert
         var items = result.Items.ToArray();
-        Assert.Equal(2, result.TotalCount);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(2, items.Length);
-        Assert.All(items, item => Assert.Contains("dotnet", item.Title, StringComparison.OrdinalIgnoreCase));
+        result.TotalCount.Should().Be(2);
+        result.Count.Should().Be(2);
+        items.Should().HaveCount(2);
+        items.Should().OnlyContain(item => item.Title.Contains("dotnet", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -39,10 +40,10 @@ public class EventServiceQueryTests
 
         // Assert
         var items = result.Items.ToArray();
-        Assert.Equal(2, result.TotalCount);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(2, items.Length);
-        Assert.All(items, item => Assert.Contains("dotnet", item.Title, StringComparison.OrdinalIgnoreCase));
+        result.TotalCount.Should().Be(2);
+        result.Count.Should().Be(2);
+        items.Should().HaveCount(2);
+        items.Should().OnlyContain(item => item.Title.Contains("dotnet", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -59,9 +60,9 @@ public class EventServiceQueryTests
 
         // Assert
         var items = result.Items.ToArray();
-        Assert.Equal(5, result.TotalCount);
-        Assert.Equal(5, result.Count);
-        Assert.Equal(5, items.Length);
+        result.TotalCount.Should().Be(5);
+        result.Count.Should().Be(5);
+        items.Should().HaveCount(5);
     }
 
     [Fact]
@@ -79,17 +80,15 @@ public class EventServiceQueryTests
 
         // Assert
         var items = result.Items.ToArray();
-        Assert.Equal(3, result.TotalCount);
-        Assert.Equal(3, result.Count);
-        Assert.Equal(3, items.Length);
-        Assert.Equal("DotNet Advanced", items[0].Title);
-        Assert.Equal("Архитектурный воркшоп", items[1].Title);
-        Assert.Equal("DotNet Meetup", items[2].Title);
-        Assert.All(items, item =>
-        {
-            Assert.True(item.StartAt >= new DateTime(2026, 5, 2, 0, 0, 0));
-            Assert.True(item.EndAt <= new DateTime(2026, 5, 4, 23, 59, 59));
-        });
+        result.TotalCount.Should().Be(3);
+        result.Count.Should().Be(3);
+        items.Should().HaveCount(3);
+        items.Select(item => item.Title)
+            .Should()
+            .ContainInOrder("DotNet Advanced", "Архитектурный воркшоп", "DotNet Meetup");
+        items.Should().OnlyContain(item =>
+            item.StartAt >= new DateTime(2026, 5, 2, 0, 0, 0)
+            && item.EndAt <= new DateTime(2026, 5, 4, 23, 59, 59));
     }
 
     [Fact]
@@ -106,12 +105,12 @@ public class EventServiceQueryTests
         });
 
         // Assert
-        var item = Assert.Single(result.Items);
-        Assert.Equal("DotNet Advanced", item.Title);
-        Assert.Equal(new DateTime(2026, 5, 2, 10, 0, 0), item.StartAt);
-        Assert.Equal(new DateTime(2026, 5, 2, 13, 0, 0), item.EndAt);
-        Assert.Equal(1, result.TotalCount);
-        Assert.Equal(1, result.Count);
+        var item = result.Items.Should().ContainSingle().Subject;
+        item.Title.Should().Be("DotNet Advanced");
+        item.StartAt.Should().Be(new DateTime(2026, 5, 2, 10, 0, 0));
+        item.EndAt.Should().Be(new DateTime(2026, 5, 2, 13, 0, 0));
+        result.TotalCount.Should().Be(1);
+        result.Count.Should().Be(1);
     }
 
     [Fact]
@@ -129,10 +128,10 @@ public class EventServiceQueryTests
         });
 
         // Assert
-        var item = Assert.Single(result.Items);
-        Assert.Equal("DotNet Meetup", item.Title);
-        Assert.Equal(1, result.TotalCount);
-        Assert.Equal(1, result.Count);
+        var item = result.Items.Should().ContainSingle().Subject;
+        item.Title.Should().Be("DotNet Meetup");
+        result.TotalCount.Should().Be(1);
+        result.Count.Should().Be(1);
     }
 
     [Fact]
@@ -150,12 +149,11 @@ public class EventServiceQueryTests
 
         // Assert
         var items = result.Items.ToArray();
-        Assert.Equal(5, result.TotalCount);
-        Assert.Equal(2, result.Page);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(2, items.Length);
-        Assert.Equal("Архитектурный воркшоп", items[0].Title);
-        Assert.Equal("DotNet Meetup", items[1].Title);
+        result.TotalCount.Should().Be(5);
+        result.Page.Should().Be(2);
+        result.Count.Should().Be(2);
+        items.Should().HaveCount(2);
+        items.Select(item => item.Title).Should().ContainInOrder("Архитектурный воркшоп", "DotNet Meetup");
     }
 
     [Fact]
@@ -171,9 +169,9 @@ public class EventServiceQueryTests
         });
 
         // Assert
-        Assert.Empty(result.Items);
-        Assert.Equal(0, result.TotalCount);
-        Assert.Equal(0, result.Count);
+        result.Items.Should().BeEmpty();
+        result.TotalCount.Should().Be(0);
+        result.Count.Should().Be(0);
     }
 
     private static EventService CreateServiceWithSampleEvents()
