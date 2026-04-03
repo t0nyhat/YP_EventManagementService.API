@@ -1,5 +1,6 @@
 using EventManagementService.API.Middleware;
 using EventManagementService.API.Services;
+using EventManagementService.API.Stores;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 // Registers IEventService as Singleton: single instance shared across all requests.
 // Suitable for in-memory storage since the same data collection is used for the app lifetime.
 builder.Services.AddSingleton<IEventService, EventService>();
+builder.Services.AddSingleton<IBookingStore, InMemoryBookingStore>();
+builder.Services.AddSingleton<IBookingService, BookingService>();
 
 var app = builder.Build();
 
