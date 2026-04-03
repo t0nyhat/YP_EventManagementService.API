@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using EventManagementService.API.Validation;
 
 namespace EventManagementService.API.Dtos;
 
 /// <summary>
 /// Query parameters for retrieving a filtered and paginated list of events.
 /// </summary>
-public class GetEventsQuery
+public class GetEventsQuery : IValidatableObject
 {
     /// <summary>
     /// Searches events by title using case-insensitive partial match.
@@ -25,12 +26,15 @@ public class GetEventsQuery
     /// <summary>
     /// Page number to return. The minimum value is 1.
     /// </summary>
-    [Range(1, int.MaxValue, ErrorMessage = "Номер страницы должен быть не меньше 1.")]
     public int Page { get; set; } = 1;
 
     /// <summary>
     /// Number of items per page. Allowed range is from 1 to 100.
     /// </summary>
-    [Range(1, 100, ErrorMessage = "Размер страницы должен быть в диапазоне от 1 до 100.")]
     public int PageSize { get; set; } = 10;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        return GetEventsQueryValidation.Validate(this);
+    }
 }

@@ -1,6 +1,7 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
+using EventManagementService.API.Validation;
 
 namespace EventManagementService.API.Services;
 
@@ -147,19 +148,10 @@ public class EventService : IEventService
             throw new BusinessValidationException("Дата начала диапазона не должна быть позже даты окончания.");
         }
 
-        if (query.Page < 1)
+        var error = GetEventsQueryValidation.Validate(query).FirstOrDefault();
+        if (error is not null)
         {
-            throw new BusinessValidationException("Номер страницы должен быть не меньше 1.");
-        }
-
-        if (query.PageSize < 1)
-        {
-            throw new BusinessValidationException("Размер страницы должен быть не меньше 1.");
-        }
-
-        if (query.PageSize > 100)
-        {
-            throw new BusinessValidationException("Размер страницы должен быть не больше 100.");
+            throw new BusinessValidationException(error.ErrorMessage!);
         }
     }
 }
