@@ -38,11 +38,12 @@ public class EventService : IEventService
         }
 
         var filteredEvents = snapshot.AsEnumerable();
+        var normalizedTitle = query.Title?.Trim();
 
-        if (!string.IsNullOrWhiteSpace(query.Title))
+        if (!string.IsNullOrWhiteSpace(normalizedTitle))
         {
             filteredEvents = filteredEvents.Where(eventItem =>
-                eventItem.Title.Contains(query.Title, StringComparison.OrdinalIgnoreCase));
+                eventItem.Title.Contains(normalizedTitle, StringComparison.OrdinalIgnoreCase));
         }
 
         if (query.From.HasValue)

@@ -26,6 +26,26 @@ public class EventServiceQueryTests
     }
 
     [Fact]
+    public void GetEvents_WhenTitleContainsLeadingAndTrailingWhitespace_TrimsFilterBeforeSearch()
+    {
+        // Arrange
+        var service = CreateServiceWithSampleEvents();
+
+        // Act
+        var result = service.GetEvents(new GetEventsQuery
+        {
+            Title = "  dotnet  "
+        });
+
+        // Assert
+        var items = result.Items.ToArray();
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(2, items.Length);
+        Assert.All(items, item => Assert.Contains("dotnet", item.Title, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void GetEvents_WhenFilteredByDates_ReturnsOnlyEventsInRequestedRange()
     {
         // Arrange
