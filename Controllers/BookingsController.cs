@@ -9,7 +9,7 @@ namespace EventManagementService.API.Controllers;
 /// Controller for reading booking resources.
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/bookings")]
 public class BookingsController(IBookingService bookingService) : ControllerBase
 {
     public const string GetBookingByIdRouteName = "GetBookingById";

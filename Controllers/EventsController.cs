@@ -9,7 +9,7 @@ namespace EventManagementService.API.Controllers;
 /// Controller for managing events.
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/events")]
 public class EventsController(IEventService eventService) : ControllerBase
 {
     /// <summary>
