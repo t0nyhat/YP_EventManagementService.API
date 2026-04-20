@@ -1,0 +1,81 @@
+using EventManagementService.API.Models;
+using FluentAssertions;
+
+namespace EventManagementService.API.Tests.Models;
+
+public class BookingTests
+{
+    [Fact]
+    public void CreatePending_WhenEventIdIsProvided_CreatesPendingBooking()
+    {
+        // Arrange
+        var eventId = Guid.NewGuid();
+        var createdAt = new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        var booking = Booking.CreatePending(eventId, createdAt);
+
+        // Assert
+        booking.Id.Should().NotBe(Guid.Empty);
+        booking.EventId.Should().Be(eventId);
+        booking.Status.Should().Be(BookingStatus.Pending);
+        booking.CreatedAt.Should().Be(createdAt);
+        booking.ProcessedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void CreatePending_WhenEventIdIsEmpty_ThrowsArgumentException()
+    {
+        // Act
+        var action = () => Booking.CreatePending(Guid.Empty);
+
+        // Assert
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("Идентификатор события должен быть указан.*");
+    }
+
+    [Fact]
+    public void Confirm_WhenBookingIsPending_SetsConfirmedStatusAndProcessedAt()
+    {
+        // Arrange
+        var booking = Booking.CreatePending(Guid.NewGuid(), new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
+        var processedAt = new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc);
+
+        // Act
+        booking.Confirm(processedAt);
+
+        // Assert
+        booking.Status.Should().Be(BookingStatus.Confirmed);
+        booking.ProcessedAt.Should().Be(processedAt);
+    }
+
+    [Fact]
+    public void Reject_WhenBookingIsPending_SetsRejectedStatusAndProcessedAt()
+    {
+        // Arrange
+        var booking = Booking.CreatePending(Guid.NewGuid(), new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
+        var processedAt = new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc);
+
+        // Act
+        booking.Reject(processedAt);
+
+        // Assert
+        booking.Status.Should().Be(BookingStatus.Rejected);
+        booking.ProcessedAt.Should().Be(processedAt);
+    }
+
+    [Fact]
+    public void Confirm_WhenBookingIsAlreadyProcessed_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var booking = Booking.CreatePending(Guid.NewGuid());
+        booking.Confirm(new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc));
+
+        // Act
+        var action = () => booking.Confirm();
+
+        // Assert
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("Обрабатывать можно только бронирования в статусе ожидания.");
+    }
+}

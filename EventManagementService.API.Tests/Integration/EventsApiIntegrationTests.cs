@@ -1,8 +1,14 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
+using EventManagementService.API.BackgroundServices;
 using EventManagementService.API.Controllers;
+using EventManagementService.API.Dtos;
 using EventManagementService.API.Middleware;
+using EventManagementService.API.Models;
 using EventManagementService.API.Services;
+using EventManagementService.API.Stores;
+using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -29,18 +35,18 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         using var response = await _client.GetAsync("/api/events?page=0");
 
         // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
 
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root = payload.RootElement;
 
-        Assert.Equal(400, root.GetProperty("status").GetInt32());
-        Assert.Equal("Validation error", root.GetProperty("title").GetString());
-        Assert.True(root.TryGetProperty("traceId", out var traceId));
-        Assert.False(string.IsNullOrWhiteSpace(traceId.GetString()));
-        Assert.True(root.TryGetProperty("errors", out var errors));
-        Assert.True(errors.EnumerateObject().Any());
+        root.GetProperty("status").GetInt32().Should().Be(400);
+        root.GetProperty("title").GetString().Should().Be("Validation error");
+        root.TryGetProperty("traceId", out var traceId).Should().BeTrue();
+        string.IsNullOrWhiteSpace(traceId.GetString()).Should().BeFalse();
+        root.TryGetProperty("errors", out var errors).Should().BeTrue();
+        errors.EnumerateObject().Should().NotBeEmpty();
     }
 
     [Fact]
@@ -50,18 +56,18 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         using var response = await _client.GetAsync("/api/events?from=2026-11-05T00:00:00&to=2026-11-04T23:59:59");
 
         // Assert
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
 
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root = payload.RootElement;
 
-        Assert.Equal(400, root.GetProperty("status").GetInt32());
-        Assert.Equal("Validation error", root.GetProperty("title").GetString());
-        Assert.Equal("Дата начала диапазона не должна быть позже даты окончания.", root.GetProperty("detail").GetString());
-        Assert.Equal("/api/events", root.GetProperty("instance").GetString());
-        Assert.True(root.TryGetProperty("traceId", out var traceId));
-        Assert.False(string.IsNullOrWhiteSpace(traceId.GetString()));
+        root.GetProperty("status").GetInt32().Should().Be(400);
+        root.GetProperty("title").GetString().Should().Be("Validation error");
+        root.GetProperty("detail").GetString().Should().Be("Дата начала диапазона не должна быть позже даты окончания.");
+        root.GetProperty("instance").GetString().Should().Be("/api/events");
+        root.TryGetProperty("traceId", out var traceId).Should().BeTrue();
+        string.IsNullOrWhiteSpace(traceId.GetString()).Should().BeFalse();
     }
 
     [Fact]
@@ -74,18 +80,82 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         using var response = await _client.GetAsync($"/api/events/{id}");
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
 
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root = payload.RootElement;
 
-        Assert.Equal(404, root.GetProperty("status").GetInt32());
-        Assert.Equal("Resource not found", root.GetProperty("title").GetString());
-        Assert.Equal($"Событие с id {id} не найдено.", root.GetProperty("detail").GetString());
-        Assert.Equal($"/api/events/{id}", root.GetProperty("instance").GetString());
-        Assert.True(root.TryGetProperty("traceId", out var traceId));
-        Assert.False(string.IsNullOrWhiteSpace(traceId.GetString()));
+        root.GetProperty("status").GetInt32().Should().Be(404);
+        root.GetProperty("title").GetString().Should().Be("Resource not found");
+        root.GetProperty("detail").GetString().Should().Be($"Событие с id {id} не найдено.");
+        root.GetProperty("instance").GetString().Should().Be($"/api/events/{id}");
+        root.TryGetProperty("traceId", out var traceId).Should().BeTrue();
+        string.IsNullOrWhiteSpace(traceId.GetString()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CreateBooking_WhenEventExists_ReturnsAcceptedAndEventuallyConfirmed()
+    {
+        // Arrange
+        var createEventRequest = new CreateEventRequest
+        {
+            Title = "Sprint 3 integration event",
+            Description = "Booking workflow check",
+            StartAt = DateTime.UtcNow.AddDays(1),
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2)
+        };
+
+        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest);
+        createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>();
+        createdEvent.Should().NotBeNull();
+
+        // Act
+        using var createBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null);
+
+        // Assert
+        createBookingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        createBookingResponse.Headers.Location.Should().NotBeNull();
+
+        var createdBooking = await createBookingResponse.Content.ReadFromJsonAsync<BookingResponse>();
+        createdBooking.Should().NotBeNull();
+        createdBooking!.EventId.Should().Be(createdEvent.Id);
+        createdBooking.Status.Should().Be(BookingStatus.Pending);
+        createdBooking.ProcessedAt.Should().BeNull();
+        createBookingResponse.Headers.Location!.AbsolutePath.Should().Be($"/api/bookings/{createdBooking.Id}");
+
+        var pendingBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{createdBooking.Id}");
+        pendingBooking.Should().NotBeNull();
+        pendingBooking!.Status.Should().Be(BookingStatus.Pending);
+        pendingBooking.ProcessedAt.Should().BeNull();
+
+        var confirmedBooking = await WaitForBookingStatusAsync(createdBooking.Id, BookingStatus.Confirmed, TimeSpan.FromSeconds(6));
+        confirmedBooking.Status.Should().Be(BookingStatus.Confirmed);
+        confirmedBooking.ProcessedAt.Should().NotBeNull();
+        confirmedBooking.ProcessedAt!.Value.Should().BeAfter(createdBooking.CreatedAt);
+    }
+
+    private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout);
+        BookingResponse? latestBooking = null;
+
+        while (DateTime.UtcNow <= deadline)
+        {
+            latestBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{bookingId}");
+
+            if (latestBooking?.Status == expectedStatus)
+            {
+                return latestBooking;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        throw new TimeoutException(
+            $"Бронирование с id {bookingId} не достигло статуса {expectedStatus} за {timeout.TotalSeconds} секунд.");
     }
 }
 
@@ -129,6 +199,9 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                         };
                     });
                     services.AddSingleton<IEventService, EventService>();
+                    services.AddSingleton<IBookingStore, InMemoryBookingStore>();
+                    services.AddSingleton<IBookingService, BookingService>();
+                    services.AddHostedService<BookingProcessingBackgroundService>();
                 });
                 webBuilder.Configure(app =>
                 {

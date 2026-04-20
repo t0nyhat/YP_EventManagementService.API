@@ -1,6 +1,7 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Services;
+using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Services;
 
@@ -21,11 +22,11 @@ public class EventServiceCrudTests
         var createdEvent = service.CreateEvent(newEvent);
 
         // Assert
-        Assert.NotEqual(Guid.Empty, createdEvent.Id);
-        Assert.Equal("Конференция .NET", createdEvent.Title);
-        Assert.Equal("Технологическое мероприятие", createdEvent.Description);
-        Assert.Equal(new DateTime(2026, 4, 10, 10, 0, 0), createdEvent.StartAt);
-        Assert.Equal(new DateTime(2026, 4, 10, 18, 0, 0), createdEvent.EndAt);
+        createdEvent.Id.Should().NotBe(Guid.Empty);
+        createdEvent.Title.Should().Be("Конференция .NET");
+        createdEvent.Description.Should().Be("Технологическое мероприятие");
+        createdEvent.StartAt.Should().Be(new DateTime(2026, 4, 10, 10, 0, 0));
+        createdEvent.EndAt.Should().Be(new DateTime(2026, 4, 10, 18, 0, 0));
     }
 
     [Fact]
@@ -53,10 +54,9 @@ public class EventServiceCrudTests
         var events = result.Items.ToArray();
 
         // Assert
-        Assert.Equal(2, events.Length);
-        Assert.Equal(2, result.TotalCount);
-        Assert.Equal(firstEvent.Id, events[0].Id);
-        Assert.Equal(secondEvent.Id, events[1].Id);
+        events.Should().HaveCount(2);
+        result.TotalCount.Should().Be(2);
+        events.Select(item => item.Id).Should().ContainInOrder(firstEvent.Id, secondEvent.Id);
     }
 
     [Fact]
@@ -74,9 +74,9 @@ public class EventServiceCrudTests
         var eventItem = service.GetEventById(createdEvent.Id);
 
         // Assert
-        Assert.Equal(createdEvent.Id, eventItem.Id);
-        Assert.Equal("Митап", eventItem.Title);
-        Assert.Equal("Встреча сообщества", eventItem.Description);
+        eventItem.Id.Should().Be(createdEvent.Id);
+        eventItem.Title.Should().Be("Митап");
+        eventItem.Description.Should().Be("Встреча сообщества");
     }
 
     [Fact]
@@ -99,11 +99,11 @@ public class EventServiceCrudTests
         var result = service.UpdateEvent(createdEvent.Id, updatedEvent);
 
         // Assert
-        Assert.Equal(createdEvent.Id, result.Id);
-        Assert.Equal("Новое название", result.Title);
-        Assert.Equal("Новое описание", result.Description);
-        Assert.Equal(new DateTime(2026, 7, 2, 13, 0, 0), result.StartAt);
-        Assert.Equal(new DateTime(2026, 7, 2, 15, 0, 0), result.EndAt);
+        result.Id.Should().Be(createdEvent.Id);
+        result.Title.Should().Be("Новое название");
+        result.Description.Should().Be("Новое описание");
+        result.StartAt.Should().Be(new DateTime(2026, 7, 2, 13, 0, 0));
+        result.EndAt.Should().Be(new DateTime(2026, 7, 2, 15, 0, 0));
     }
 
     [Fact]
@@ -126,11 +126,11 @@ public class EventServiceCrudTests
         var result = service.UpdateEvent(createdEvent.Id, updatedEvent);
 
         // Assert
-        Assert.Equal(createdEvent.Id, result.Id);
-        Assert.Equal("Событие без описания", result.Title);
-        Assert.Null(result.Description);
-        Assert.Equal(new DateTime(2026, 7, 6, 13, 0, 0), result.StartAt);
-        Assert.Equal(new DateTime(2026, 7, 6, 15, 0, 0), result.EndAt);
+        result.Id.Should().Be(createdEvent.Id);
+        result.Title.Should().Be("Событие без описания");
+        result.Description.Should().BeNull();
+        result.StartAt.Should().Be(new DateTime(2026, 7, 6, 13, 0, 0));
+        result.EndAt.Should().Be(new DateTime(2026, 7, 6, 15, 0, 0));
     }
 
     [Fact]
@@ -149,9 +149,9 @@ public class EventServiceCrudTests
         var result = service.GetEvents(new GetEventsQuery());
 
         // Assert
-        Assert.Empty(result.Items);
-        Assert.Equal(0, result.TotalCount);
-        Assert.Throws<NotFoundException>(() => service.GetEventById(createdEvent.Id));
+        result.Items.Should().BeEmpty();
+        result.TotalCount.Should().Be(0);
+        var action = () => service.GetEventById(createdEvent.Id);
+        action.Should().Throw<NotFoundException>();
     }
-
 }
