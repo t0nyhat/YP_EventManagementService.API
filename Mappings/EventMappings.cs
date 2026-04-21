@@ -12,7 +12,9 @@ public static class EventMappings
             Title = request.Title,
             Description = request.Description,
             StartAt = request.StartAt!.Value,
-            EndAt = request.EndAt!.Value
+            EndAt = request.EndAt!.Value,
+            TotalSeats = request.TotalSeats!.Value,
+            AvailableSeats = request.TotalSeats.Value
         };
     }
 
@@ -35,7 +37,9 @@ public static class EventMappings
             Title = eventItem.Title,
             Description = eventItem.Description,
             StartAt = eventItem.StartAt,
-            EndAt = eventItem.EndAt
+            EndAt = eventItem.EndAt,
+            TotalSeats = eventItem.TotalSeats,
+            AvailableSeats = eventItem.AvailableSeats
         };
     }
 
