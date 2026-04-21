@@ -27,6 +27,8 @@ public class EventServiceCrudTests
         createdEvent.Description.Should().Be("Технологическое мероприятие");
         createdEvent.StartAt.Should().Be(new DateTime(2026, 4, 10, 10, 0, 0));
         createdEvent.EndAt.Should().Be(new DateTime(2026, 4, 10, 18, 0, 0));
+        createdEvent.TotalSeats.Should().Be(10);
+        createdEvent.AvailableSeats.Should().Be(10);
     }
 
     [Fact]
@@ -77,6 +79,8 @@ public class EventServiceCrudTests
         eventItem.Id.Should().Be(createdEvent.Id);
         eventItem.Title.Should().Be("Митап");
         eventItem.Description.Should().Be("Встреча сообщества");
+        eventItem.TotalSeats.Should().Be(10);
+        eventItem.AvailableSeats.Should().Be(10);
     }
 
     [Fact]

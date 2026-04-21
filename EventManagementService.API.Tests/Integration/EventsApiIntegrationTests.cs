@@ -103,7 +103,8 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
             Title = "Sprint 3 integration event",
             Description = "Booking workflow check",
             StartAt = DateTime.UtcNow.AddDays(1),
-            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2)
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2),
+            TotalSeats = 3
         };
 
         using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest);
@@ -111,6 +112,8 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
 
         var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>();
         createdEvent.Should().NotBeNull();
+        createdEvent!.TotalSeats.Should().Be(3);
+        createdEvent.AvailableSeats.Should().Be(3);
 
         // Act
         using var createBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null);
@@ -135,6 +138,62 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         confirmedBooking.Status.Should().Be(BookingStatus.Confirmed);
         confirmedBooking.ProcessedAt.Should().NotBeNull();
         confirmedBooking.ProcessedAt!.Value.Should().BeAfter(createdBooking.CreatedAt);
+    }
+
+    [Fact]
+    public async Task CreateEvent_WhenRequestIsValid_ReturnsCreatedEventWithSeatFields()
+    {
+        // Arrange
+        var request = new CreateEventRequest
+        {
+            Title = "Sprint 4 seats event",
+            Description = "Seat contract check",
+            StartAt = DateTime.UtcNow.AddDays(2),
+            EndAt = DateTime.UtcNow.AddDays(2).AddHours(1),
+            TotalSeats = 25
+        };
+
+        // Act
+        using var response = await _client.PostAsJsonAsync("/api/events", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await response.Content.ReadFromJsonAsync<EventResponse>();
+        createdEvent.Should().NotBeNull();
+        createdEvent!.TotalSeats.Should().Be(25);
+        createdEvent.AvailableSeats.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task CreateEvent_WhenTotalSeatsIsInvalid_ReturnsValidationProblemDetails()
+    {
+        // Arrange
+        var request = new CreateEventRequest
+        {
+            Title = "Invalid seats event",
+            Description = "Seat validation check",
+            StartAt = DateTime.UtcNow.AddDays(2),
+            EndAt = DateTime.UtcNow.AddDays(2).AddHours(1),
+            TotalSeats = 0
+        };
+
+        // Act
+        using var response = await _client.PostAsJsonAsync("/api/events", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = payload.RootElement;
+
+        root.GetProperty("status").GetInt32().Should().Be(400);
+        root.GetProperty("title").GetString().Should().Be("Validation error");
+        root.TryGetProperty("errors", out var errors).Should().BeTrue();
+        errors.TryGetProperty("TotalSeats", out var totalSeatsErrors).Should().BeTrue();
+        totalSeatsErrors.EnumerateArray().Select(item => item.GetString())
+            .Should().Contain(message => message == "Количество мест должно быть больше нуля.");
     }
 
     private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, TimeSpan timeout)
