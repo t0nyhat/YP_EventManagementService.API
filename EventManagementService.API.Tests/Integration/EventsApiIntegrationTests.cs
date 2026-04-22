@@ -196,6 +196,44 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
             .Should().Contain(message => message == "Количество мест должно быть больше нуля.");
     }
 
+    [Fact]
+    public async Task CreateBooking_WhenNoSeatsAreAvailable_ReturnsConflictProblemDetails()
+    {
+        // Arrange
+        var createEventRequest = new CreateEventRequest
+        {
+            Title = "Sold out event",
+            Description = "No seats should remain",
+            StartAt = DateTime.UtcNow.AddDays(1),
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2),
+            TotalSeats = 1
+        };
+
+        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest);
+        createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>();
+        createdEvent.Should().NotBeNull();
+
+        using var firstBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null);
+        firstBookingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        // Act
+        using var secondBookingResponse = await _client.PostAsync($"/api/events/{createdEvent.Id}/book", content: null);
+
+        // Assert
+        secondBookingResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        secondBookingResponse.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        using var payload = JsonDocument.Parse(await secondBookingResponse.Content.ReadAsStringAsync());
+        var root = payload.RootElement;
+
+        root.GetProperty("status").GetInt32().Should().Be(409);
+        root.GetProperty("title").GetString().Should().Be("Conflict");
+        root.GetProperty("detail").GetString().Should().Be("Нет свободных мест на данное событие.");
+        root.GetProperty("instance").GetString().Should().Be($"/api/events/{createdEvent.Id}/book");
+    }
+
     private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow.Add(timeout);
