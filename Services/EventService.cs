@@ -132,6 +132,28 @@ public class EventService : IEventService
         }
     }
 
+    /// <inheritdoc />
+    public bool TryReserveSeats(Guid eventId)
+    {
+        lock (_lock)
+        {
+            var eventItem = _events.FirstOrDefault(item => item.Id == eventId)
+                ?? throw new NotFoundException($"Событие с id {eventId} не найдено.");
+
+            return eventItem.TryReserveSeats();
+        }
+    }
+
+    /// <inheritdoc />
+    public void ReleaseSeats(Guid eventId)
+    {
+        lock (_lock)
+        {
+            var eventItem = _events.FirstOrDefault(item => item.Id == eventId);
+            eventItem?.ReleaseSeats();
+        }
+    }
+
     private static void ValidateEvent(Event eventItem)
     {
         if (string.IsNullOrWhiteSpace(eventItem.Title))
