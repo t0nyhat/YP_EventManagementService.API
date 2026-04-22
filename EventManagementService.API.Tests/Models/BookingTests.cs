@@ -78,4 +78,36 @@ public class BookingTests
         action.Should().Throw<InvalidOperationException>()
             .WithMessage("Обрабатывать можно только бронирования в статусе ожидания.");
     }
+
+    [Fact]
+    public async Task BookingService_AfterRejectAndReleaseSeats_AllowsNewBookingOnSameEvent()
+    {
+        // Arrange: event with 1 seat, one booking reserved and then rejected + seat released
+        var eventService = new EventManagementService.API.Services.EventService();
+        var bookingStore = new EventManagementService.API.Stores.InMemoryBookingStore();
+        var bookingService = new EventManagementService.API.Services.BookingService(bookingStore, eventService);
+
+        var createdEvent = eventService.CreateEvent(new Event
+        {
+            Title = "Событие с возвратом",
+            StartAt = new DateTime(2026, 5, 1, 10, 0, 0),
+            EndAt = new DateTime(2026, 5, 1, 12, 0, 0),
+            TotalSeats = 1,
+            AvailableSeats = 1
+        });
+
+        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+
+        // Simulate rejection + seat release (what background service does on error/delete path)
+        bookingStore.TrySetStatus(firstBooking.Id, BookingStatus.Rejected, DateTime.UtcNow);
+        eventService.ReleaseSeats(createdEvent.Id);
+
+        // Act: now there should be a free seat again
+        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+
+        // Assert
+        secondBooking.Id.Should().NotBe(firstBooking.Id);
+        secondBooking.Status.Should().Be(BookingStatus.Pending);
+        eventService.GetEventById(createdEvent.Id).AvailableSeats.Should().Be(0);
+    }
 }
