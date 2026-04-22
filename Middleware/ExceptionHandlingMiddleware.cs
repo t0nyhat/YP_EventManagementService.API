@@ -12,6 +12,7 @@ public sealed class ExceptionHandlingMiddleware(
     IProblemDetailsService problemDetailsService)
 {
     private static readonly Uri ValidationType = new("https://tools.ietf.org/html/rfc9110#section-15.5.1");
+    private static readonly Uri ConflictType = new("https://tools.ietf.org/html/rfc9110#section-15.5.10");
     private static readonly Uri NotFoundType = new("https://tools.ietf.org/html/rfc9110#section-15.5.5");
     private static readonly Uri ServerErrorType = new("https://tools.ietf.org/html/rfc9110#section-15.6.1");
 
@@ -82,6 +83,7 @@ public sealed class ExceptionHandlingMiddleware(
         return exception switch
         {
             BusinessValidationException => (StatusCodes.Status400BadRequest, "Validation error", ValidationType),
+            NoAvailableSeatsException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
             NotFoundException => (StatusCodes.Status404NotFound, "Resource not found", NotFoundType),
             _ => (StatusCodes.Status500InternalServerError, "Internal server error", ServerErrorType)
         };

@@ -19,6 +19,7 @@ public class EventBookingsController(IBookingService bookingService) : Controlle
     /// <returns>Accepted booking resource with a Location header.</returns>
     [HttpPost("{id:guid}/book")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<BookingResponse>> CreateBooking([FromRoute] CreateBookingRequest request)
     {
