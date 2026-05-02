@@ -4,6 +4,12 @@
 
 ## Типы тестов в sprint 4
 
+### Инструменты тестирования
+
+- `xUnit v3` используется как основной тестовый фреймворк.
+- Для unit-тестов зависимостей применяется `Moq`, чтобы изолировать тестируемый класс от конкретных реализаций сервисов.
+- В интеграционных тестах асинхронные вызовы получают `TestContext.Current.CancellationToken` для корректной отмены и чистого прогона анализаторов xUnit.
+
 ### 1. Тесты моделей: BookingTests.cs
 
 Файл: `EventManagementService.API.Tests/Models/BookingTests.cs`
@@ -228,11 +234,15 @@ public async Task CreateBookingAsync_WhenRequestedConcurrently_ReturnsUniqueBook
 [Fact]
 public async Task ExecuteAsync_WhenPendingBookingExists_ConfirmsBookingAndSetsProcessedAt()
 {
-    var eventService = new EventService();
+    var eventId = Guid.NewGuid();
+    var eventService = new Mock<IEventService>();
+    eventService
+        .Setup(service => service.GetEventById(eventId))
+        .Returns(new Event { Id = eventId, Title = "Событие", TotalSeats = 10, AvailableSeats = 10, ... });
+
     var store = new InMemoryBookingStore();
-    var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(...));
-    var booking = store.Add(Booking.CreatePending(createdEvent.Id, new DateTime(...)));
-    var worker = new BookingProcessingBackgroundService(store, eventService, ...);
+    var booking = store.Add(Booking.CreatePending(eventId, new DateTime(...)));
+    var worker = new BookingProcessingBackgroundService(store, eventService.Object, ...);
 
     using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
     try
@@ -260,15 +270,16 @@ public async Task ExecuteAsync_WhenPendingBookingExists_ConfirmsBookingAndSetsPr
 [Fact]
 public async Task ExecuteAsync_WhenEventIsDeletedBeforeProcessing_RejectsBooking()
 {
-    var eventService = new EventService();
+    var eventId = Guid.NewGuid();
+    var eventService = new Mock<IEventService>();
+    eventService
+        .Setup(service => service.GetEventById(eventId))
+        .Throws(new NotFoundException("Событие не найдено."));
+
     var store = new InMemoryBookingStore();
-    var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(...));
-    var booking = store.Add(Booking.CreatePending(createdEvent.Id));
+    var booking = store.Add(Booking.CreatePending(eventId));
 
-    // Delete the event BEFORE background service processes the booking
-    eventService.DeleteEvent(createdEvent.Id);
-
-    var worker = new BookingProcessingBackgroundService(store, eventService, ...);
+    var worker = new BookingProcessingBackgroundService(store, eventService.Object, ...);
 
     using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
     try
@@ -295,16 +306,15 @@ public async Task ExecuteAsync_WhenEventIsDeletedBeforeProcessing_RejectsBooking
 [Fact]
 public async Task ExecuteAsync_WhenEventServiceThrows_RejectsBookingAndReleasesSeats()
 {
-    var eventService = new EventService();
-    var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(totalSeats: 5));
+    var eventId = Guid.NewGuid();
+    var eventService = new Mock<IEventService>();
+    eventService
+        .Setup(service => service.GetEventById(eventId))
+        .Throws(new InvalidOperationException("Симулированная ошибка"));
 
-    // Reserve one seat
-    eventService.TryReserveSeats(createdEvent.Id);
-    var booking = store.Add(Booking.CreatePending(createdEvent.Id));
-
-    // Use a stubbed service that throws
-    var throwingService = new ThrowingEventService(eventService);
-    var worker = new BookingProcessingBackgroundService(store, throwingService, ...);
+    var store = new InMemoryBookingStore();
+    var booking = store.Add(Booking.CreatePending(eventId));
+    var worker = new BookingProcessingBackgroundService(store, eventService.Object, ...);
 
     using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
     try
@@ -314,9 +324,7 @@ public async Task ExecuteAsync_WhenEventServiceThrows_RejectsBookingAndReleasesS
             store, booking.Id, BookingStatus.Rejected, TimeSpan.FromSeconds(5));
 
         processedBooking.Status.Should().Be(BookingStatus.Rejected);
-        var eventAfter = eventService.GetEventById(createdEvent.Id);
-        // Seat should be restored
-        eventAfter.AvailableSeats.Should().Be(5);
+        eventService.Verify(service => service.ReleaseSeats(eventId), Times.Once);
     }
     finally
     {
@@ -326,7 +334,7 @@ public async Task ExecuteAsync_WhenEventServiceThrows_RejectsBookingAndReleasesS
 }
 ```
 
-**КЛЮЧЕВОЙ ТЕСТ**: при ошибке место должно быть возвращено.
+**КЛЮЧЕВОЙ ТЕСТ**: при ошибке место должно быть возвращено, и это проверяется через `Moq.Verify(...)`.
 
 #### ⭐ Параллельная обработка
 
@@ -335,14 +343,18 @@ public async Task ExecuteAsync_WhenEventServiceThrows_RejectsBookingAndReleasesS
 public async Task ExecuteAsync_WhenMultiplePendingBookingsExist_ProcessesThemAllInParallel()
 {
     const int bookingCount = 3;
-    var eventService = new EventService();
+    var eventId = Guid.NewGuid();
+    var eventService = new Mock<IEventService>();
+    eventService
+        .Setup(service => service.GetEventById(eventId))
+        .Returns(new Event { Id = eventId, Title = "Параллельное событие", TotalSeats = bookingCount, AvailableSeats = bookingCount, ... });
+
     var store = new InMemoryBookingStore();
-    var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(totalSeats: bookingCount));
     var bookings = Enumerable.Range(0, bookingCount)
-        .Select(_ => store.Add(Booking.CreatePending(createdEvent.Id)))
+        .Select(_ => store.Add(Booking.CreatePending(eventId)))
         .ToArray();
 
-    var worker = new BookingProcessingBackgroundService(store, eventService, ...);
+    var worker = new BookingProcessingBackgroundService(store, eventService.Object, ...);
 
     using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(12));
     try
@@ -436,25 +448,22 @@ private static async Task<Booking> WaitForBookingStatusAsync(
 
 Ждёт, пока бронь не достигнет нужного статуса (с timeout).
 
-### ThrowingEventService
+### Moq для имитации ошибок и verify
+
+Для сценариев ошибок больше не нужен отдельный `ThrowingEventService`.
+
+Пример:
 
 ```csharp
-internal sealed class ThrowingEventService : IEventService
-{
-    private readonly IEventService _inner;
+var eventService = new Mock<IEventService>();
+eventService
+    .Setup(service => service.GetEventById(eventId))
+    .Throws(new InvalidOperationException("Симулированная ошибка"));
 
-    public ThrowingEventService(IEventService inner) => _inner = inner;
-
-    public bool TryReserveSeats(Guid eventId)
-    {
-        throw new InvalidOperationException("Stubbed to throw");
-    }
-
-    // ... другие методы делегируют к _inner
-}
+eventService.Verify(service => service.ReleaseSeats(eventId), Times.Once);
 ```
 
-Используется для имитации ошибок в service.
+Так тест остаётся изолированным и явно проверяет взаимодействие с зависимостью.
 
 ## Как запустить тесты
 
