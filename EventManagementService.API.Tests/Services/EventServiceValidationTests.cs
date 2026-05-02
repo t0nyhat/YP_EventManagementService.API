@@ -90,6 +90,26 @@ public class EventServiceValidationTests
     }
 
     [Fact]
+    public void CreateEvent_WhenTotalSeatsIsLessThanOne_ThrowsBusinessValidationException()
+    {
+        // Arrange
+        var service = new EventService();
+        var invalidEvent = EventTestData.CreateEvent(
+            title: "Некорректная вместимость",
+            description: "Ошибка мест",
+            startAt: new DateTime(2026, 10, 2, 12, 0, 0),
+            endAt: new DateTime(2026, 10, 2, 14, 0, 0),
+            totalSeats: 0);
+
+        // Act
+        var action = () => service.CreateEvent(invalidEvent);
+
+        // Assert
+        action.Should().Throw<BusinessValidationException>()
+            .WithMessage("Количество мест должно быть больше нуля.");
+    }
+
+    [Fact]
     public void UpdateEvent_WhenEndAtIsEarlierThanStartAt_ThrowsBusinessValidationException()
     {
         // Arrange

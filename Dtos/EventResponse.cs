@@ -35,4 +35,16 @@ public class EventResponse
     /// </summary>
     [Required]
     public DateTime EndAt { get; set; }
+
+    /// <summary>
+    /// Total number of seats available for the event.
+    /// </summary>
+    [Required]
+    public int TotalSeats { get; set; }
+
+    /// <summary>
+    /// Current number of free seats available for booking.
+    /// </summary>
+    [Required]
+    public int AvailableSeats { get; set; }
 }

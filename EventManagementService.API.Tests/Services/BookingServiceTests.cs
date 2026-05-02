@@ -3,6 +3,7 @@ using EventManagementService.API.Models;
 using EventManagementService.API.Services;
 using EventManagementService.API.Stores;
 using FluentAssertions;
+using System.Collections.Concurrent;
 
 namespace EventManagementService.API.Tests.Services;
 
@@ -148,5 +149,117 @@ public class BookingServiceTests
 
         // Assert
         await action.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_WhenSeatsAreAvailable_DecreasesAvailableSeats()
+    {
+        // Arrange
+        var eventService = new EventService();
+        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+            title: "Событие с местами",
+            description: null,
+            startAt: new DateTime(2026, 5, 10, 10, 0, 0),
+            endAt: new DateTime(2026, 5, 10, 12, 0, 0),
+            totalSeats: 3));
+
+        // Act
+        await bookingService.CreateBookingAsync(createdEvent.Id);
+
+        // Assert
+        var updatedEvent = eventService.GetEventById(createdEvent.Id);
+        updatedEvent.AvailableSeats.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_WhenAllSeatsAreTaken_ThrowsNoAvailableSeatsException()
+    {
+        // Arrange
+        var eventService = new EventService();
+        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+            title: "Однoместное событие",
+            description: null,
+            startAt: new DateTime(2026, 5, 11, 10, 0, 0),
+            endAt: new DateTime(2026, 5, 11, 12, 0, 0),
+            totalSeats: 1));
+
+        await bookingService.CreateBookingAsync(createdEvent.Id);
+
+        // Act
+        var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id);
+
+        // Assert
+        await action.Should().ThrowAsync<NoAvailableSeatsException>();
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_WhenRequestedConcurrently_DoesNotExceedTotalSeats()
+    {
+        // Arrange
+        const int totalSeats = 5;
+        const int concurrentRequests = 20;
+
+        var eventService = new EventService();
+        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+            title: "Конкурентное событие",
+            description: null,
+            startAt: new DateTime(2026, 5, 12, 10, 0, 0),
+            endAt: new DateTime(2026, 5, 12, 12, 0, 0),
+            totalSeats: totalSeats));
+
+        var exceptions = new ConcurrentBag<Exception>();
+
+        // Act
+        var tasks = Enumerable.Range(0, concurrentRequests).Select(async _ =>
+        {
+            try
+            {
+                await bookingService.CreateBookingAsync(createdEvent.Id);
+            }
+            catch (NoAvailableSeatsException ex)
+            {
+                exceptions.Add(ex);
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        // Assert
+        var successCount = concurrentRequests - exceptions.Count;
+        successCount.Should().Be(totalSeats);
+        exceptions.Should().HaveCount(concurrentRequests - totalSeats);
+
+        var finalEvent = eventService.GetEventById(createdEvent.Id);
+        finalEvent.AvailableSeats.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_WhenRequestedConcurrently_ReturnsUniqueBookingIds()
+    {
+        // Arrange
+        const int totalSeats = 10;
+
+        var eventService = new EventService();
+        var bookingStore = new InMemoryBookingStore();
+        var bookingService = new BookingService(bookingStore, eventService);
+        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+            title: "Событие для Id-проверки",
+            description: null,
+            startAt: new DateTime(2026, 5, 13, 10, 0, 0),
+            endAt: new DateTime(2026, 5, 13, 12, 0, 0),
+            totalSeats: totalSeats));
+
+        // Act — ровно totalSeats параллельных запросов, все должны пройти
+        var tasks = Enumerable.Range(0, totalSeats)
+            .Select(_ => bookingService.CreateBookingAsync(createdEvent.Id));
+
+        var bookings = await Task.WhenAll(tasks);
+
+        // Assert
+        bookings.Select(b => b.Id).Should().OnlyHaveUniqueItems();
+        bookings.Should().HaveCount(totalSeats);
     }
 }

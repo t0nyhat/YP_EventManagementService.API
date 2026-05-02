@@ -31,14 +31,16 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
     [Fact]
     public async Task GetEvents_WhenPageIsLessThanOne_ReturnsValidationProblemDetails()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
         // Act
-        using var response = await _client.GetAsync("/api/events?page=0");
+        using var response = await _client.GetAsync("/api/events?page=0", cancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
 
-        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var root = payload.RootElement;
 
         root.GetProperty("status").GetInt32().Should().Be(400);
@@ -52,14 +54,16 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
     [Fact]
     public async Task GetEvents_WhenFromIsLaterThanTo_ReturnsValidationProblemDetails()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
         // Act
-        using var response = await _client.GetAsync("/api/events?from=2026-11-05T00:00:00&to=2026-11-04T23:59:59");
+        using var response = await _client.GetAsync("/api/events?from=2026-11-05T00:00:00&to=2026-11-04T23:59:59", cancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
 
-        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var root = payload.RootElement;
 
         root.GetProperty("status").GetInt32().Should().Be(400);
@@ -73,17 +77,19 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
     [Fact]
     public async Task GetEventById_WhenEventDoesNotExist_ReturnsNotFoundProblemDetails()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
         // Arrange
         var id = Guid.NewGuid();
 
         // Act
-        using var response = await _client.GetAsync($"/api/events/{id}");
+        using var response = await _client.GetAsync($"/api/events/{id}", cancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
 
-        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var root = payload.RootElement;
 
         root.GetProperty("status").GetInt32().Should().Be(404);
@@ -97,36 +103,41 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
     [Fact]
     public async Task CreateBooking_WhenEventExists_ReturnsAcceptedAndEventuallyConfirmed()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
         // Arrange
         var createEventRequest = new CreateEventRequest
         {
             Title = "Sprint 3 integration event",
             Description = "Booking workflow check",
             StartAt = DateTime.UtcNow.AddDays(1),
-            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2)
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2),
+            TotalSeats = 3
         };
 
-        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest);
+        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest, cancellationToken);
         createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>();
+        var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
         createdEvent.Should().NotBeNull();
+        createdEvent!.TotalSeats.Should().Be(3);
+        createdEvent.AvailableSeats.Should().Be(3);
 
         // Act
-        using var createBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null);
+        using var createBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null, cancellationToken);
 
         // Assert
         createBookingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
         createBookingResponse.Headers.Location.Should().NotBeNull();
 
-        var createdBooking = await createBookingResponse.Content.ReadFromJsonAsync<BookingResponse>();
+        var createdBooking = await createBookingResponse.Content.ReadFromJsonAsync<BookingResponse>(cancellationToken);
         createdBooking.Should().NotBeNull();
         createdBooking!.EventId.Should().Be(createdEvent.Id);
         createdBooking.Status.Should().Be(BookingStatus.Pending);
         createdBooking.ProcessedAt.Should().BeNull();
         createBookingResponse.Headers.Location!.AbsolutePath.Should().Be($"/api/bookings/{createdBooking.Id}");
 
-        var pendingBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{createdBooking.Id}");
+        var pendingBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{createdBooking.Id}", cancellationToken);
         pendingBooking.Should().NotBeNull();
         pendingBooking!.Status.Should().Be(BookingStatus.Pending);
         pendingBooking.ProcessedAt.Should().BeNull();
@@ -137,21 +148,122 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         confirmedBooking.ProcessedAt!.Value.Should().BeAfter(createdBooking.CreatedAt);
     }
 
+    [Fact]
+    public async Task CreateEvent_WhenRequestIsValid_ReturnsCreatedEventWithSeatFields()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // Arrange
+        var request = new CreateEventRequest
+        {
+            Title = "Sprint 4 seats event",
+            Description = "Seat contract check",
+            StartAt = DateTime.UtcNow.AddDays(2),
+            EndAt = DateTime.UtcNow.AddDays(2).AddHours(1),
+            TotalSeats = 25
+        };
+
+        // Act
+        using var response = await _client.PostAsJsonAsync("/api/events", request, cancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await response.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
+        createdEvent.Should().NotBeNull();
+        createdEvent!.TotalSeats.Should().Be(25);
+        createdEvent.AvailableSeats.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task CreateEvent_WhenTotalSeatsIsInvalid_ReturnsValidationProblemDetails()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // Arrange
+        var request = new CreateEventRequest
+        {
+            Title = "Invalid seats event",
+            Description = "Seat validation check",
+            StartAt = DateTime.UtcNow.AddDays(2),
+            EndAt = DateTime.UtcNow.AddDays(2).AddHours(1),
+            TotalSeats = 0
+        };
+
+        // Act
+        using var response = await _client.PostAsJsonAsync("/api/events", request, cancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var root = payload.RootElement;
+
+        root.GetProperty("status").GetInt32().Should().Be(400);
+        root.GetProperty("title").GetString().Should().Be("Validation error");
+        root.TryGetProperty("errors", out var errors).Should().BeTrue();
+        errors.TryGetProperty("TotalSeats", out var totalSeatsErrors).Should().BeTrue();
+        totalSeatsErrors.EnumerateArray().Select(item => item.GetString())
+            .Should().Contain(message => message == "Количество мест должно быть больше нуля.");
+    }
+
+    [Fact]
+    public async Task CreateBooking_WhenNoSeatsAreAvailable_ReturnsConflictProblemDetails()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // Arrange
+        var createEventRequest = new CreateEventRequest
+        {
+            Title = "Sold out event",
+            Description = "No seats should remain",
+            StartAt = DateTime.UtcNow.AddDays(1),
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(2),
+            TotalSeats = 1
+        };
+
+        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest, cancellationToken);
+        createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
+        createdEvent.Should().NotBeNull();
+
+        using var firstBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null, cancellationToken);
+        firstBookingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        // Act
+        using var secondBookingResponse = await _client.PostAsync($"/api/events/{createdEvent.Id}/book", content: null, cancellationToken);
+
+        // Assert
+        secondBookingResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        secondBookingResponse.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        using var payload = JsonDocument.Parse(await secondBookingResponse.Content.ReadAsStringAsync(cancellationToken));
+        var root = payload.RootElement;
+
+        root.GetProperty("status").GetInt32().Should().Be(409);
+        root.GetProperty("title").GetString().Should().Be("Conflict");
+        root.GetProperty("detail").GetString().Should().Be("Нет свободных мест на данное событие.");
+        root.GetProperty("instance").GetString().Should().Be($"/api/events/{createdEvent.Id}/book");
+    }
+
     private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, TimeSpan timeout)
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var deadline = DateTime.UtcNow.Add(timeout);
         BookingResponse? latestBooking = null;
 
         while (DateTime.UtcNow <= deadline)
         {
-            latestBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{bookingId}");
+            latestBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{bookingId}", cancellationToken);
 
             if (latestBooking?.Status == expectedStatus)
             {
                 return latestBooking;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(250));
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
 
         throw new TimeoutException(
@@ -165,7 +277,7 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
 
     public HttpClient Client { get; private set; } = default!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = await new HostBuilder()
             .ConfigureWebHost(webBuilder =>
@@ -216,7 +328,7 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
         Client.BaseAddress = new Uri("http://localhost");
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         Client.Dispose();
         await _host.StopAsync();

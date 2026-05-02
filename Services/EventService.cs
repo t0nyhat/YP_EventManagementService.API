@@ -77,6 +77,7 @@ public class EventService : IEventService
     /// <inheritdoc />
     public Event CreateEvent(Event newEvent)
     {
+        newEvent.AvailableSeats = newEvent.TotalSeats;
         ValidateEvent(newEvent);
 
         lock (_lock)
@@ -100,6 +101,9 @@ public class EventService : IEventService
             {
                 throw new NotFoundException($"Событие с id {id} не найдено.");
             }
+
+            updatedEvent.TotalSeats = existingEvent.TotalSeats;
+            updatedEvent.AvailableSeats = existingEvent.AvailableSeats;
 
             ValidateEvent(updatedEvent);
 
@@ -128,6 +132,28 @@ public class EventService : IEventService
         }
     }
 
+    /// <inheritdoc />
+    public bool TryReserveSeats(Guid eventId)
+    {
+        lock (_lock)
+        {
+            var eventItem = _events.FirstOrDefault(item => item.Id == eventId)
+                ?? throw new NotFoundException($"Событие с id {eventId} не найдено.");
+
+            return eventItem.TryReserveSeats();
+        }
+    }
+
+    /// <inheritdoc />
+    public void ReleaseSeats(Guid eventId)
+    {
+        lock (_lock)
+        {
+            var eventItem = _events.FirstOrDefault(item => item.Id == eventId);
+            eventItem?.ReleaseSeats();
+        }
+    }
+
     private static void ValidateEvent(Event eventItem)
     {
         if (string.IsNullOrWhiteSpace(eventItem.Title))
@@ -138,6 +164,16 @@ public class EventService : IEventService
         if (eventItem.EndAt <= eventItem.StartAt)
         {
             throw new BusinessValidationException("Дата окончания должна быть позже даты начала события.");
+        }
+
+        if (eventItem.TotalSeats <= 0)
+        {
+            throw new BusinessValidationException("Количество мест должно быть больше нуля.");
+        }
+
+        if (eventItem.AvailableSeats < 0 || eventItem.AvailableSeats > eventItem.TotalSeats)
+        {
+            throw new BusinessValidationException("Количество свободных мест должно быть в диапазоне от 0 до общего количества мест.");
         }
     }
 

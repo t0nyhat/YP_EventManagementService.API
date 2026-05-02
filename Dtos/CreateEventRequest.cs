@@ -31,4 +31,11 @@ public class CreateEventRequest
     /// </summary>
     [Required(ErrorMessage = "Дата окончания события обязательна!")]
     public DateTime? EndAt { get; set; }
+
+    /// <summary>
+    /// Total number of seats available for booking.
+    /// </summary>
+    [Required(ErrorMessage = "Количество мест обязательно!")]
+    [Range(1, int.MaxValue, ErrorMessage = "Количество мест должно быть больше нуля.")]
+    public int? TotalSeats { get; set; }
 }
