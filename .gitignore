@@ -13,6 +13,7 @@ obj/
 # Test and publish output
 TestResults/
 artifacts/
+.artifacts/
 publish/
 
 # Logs
