@@ -11,13 +11,13 @@ REST API для управления событиями на ASP.NET Core Web AP
 ```bash
 dotnet restore
 dotnet build
-dotnet run
+dotnet run --project src/EventManagementService.API/EventManagementService.API.csproj
 ```
 
 ## Запуск тестов
 
 ```bash
-dotnet test
+dotnet test EventManagementService.API.sln
 ```
 
 ## Swagger / OpenAPI
