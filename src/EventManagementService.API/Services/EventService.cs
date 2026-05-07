@@ -14,7 +14,7 @@ public class EventService : IEventService
 {
     private readonly AppDbContext _context;
 
-    public EventService(AppDbContext context)
+    internal EventService(AppDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }

@@ -18,7 +18,7 @@ public class BookingService : IBookingService
     /// Initializes a new instance of the <see cref="BookingService"/> class.
     /// </summary>
     /// <param name="context">Database context.</param>
-    public BookingService(AppDbContext context)
+    internal BookingService(AppDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }

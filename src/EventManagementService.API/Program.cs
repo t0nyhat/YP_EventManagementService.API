@@ -47,8 +47,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddScoped<IEventService, EventService>();
-builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IEventService>(serviceProvider =>
+    new EventService(serviceProvider.GetRequiredService<AppDbContext>()));
+builder.Services.AddScoped<IBookingService>(serviceProvider =>
+    new BookingService(serviceProvider.GetRequiredService<AppDbContext>()));
 builder.Services.AddHostedService<BookingProcessingBackgroundService>();
 
 var app = builder.Build();

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventManagementService.API.DataAccess;
 
-public sealed class AppDbContext : DbContext
+internal sealed class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)

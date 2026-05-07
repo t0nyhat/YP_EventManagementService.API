@@ -314,8 +314,10 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                     });
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseInMemoryDatabase(databaseName));
-                    services.AddScoped<IEventService, EventService>();
-                    services.AddScoped<IBookingService, BookingService>();
+                    services.AddScoped<IEventService>(serviceProvider =>
+                        new EventService(serviceProvider.GetRequiredService<AppDbContext>()));
+                    services.AddScoped<IBookingService>(serviceProvider =>
+                        new BookingService(serviceProvider.GetRequiredService<AppDbContext>()));
                     services.AddHostedService<BookingProcessingBackgroundService>();
                 });
                 webBuilder.Configure(app =>
