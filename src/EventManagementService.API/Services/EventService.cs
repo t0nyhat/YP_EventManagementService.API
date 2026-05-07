@@ -105,34 +105,6 @@ public class EventService : IEventService
         await _context.SaveChangesAsync();
     }
 
-    /// <inheritdoc />
-    public bool TryReserveSeats(Guid eventId)
-    {
-        var eventItem = _context.Events.FirstOrDefault(item => item.Id == eventId)
-            ?? throw new NotFoundException($"Событие с id {eventId} не найдено.");
-
-        var reserved = eventItem.TryReserveSeats();
-        if (reserved)
-        {
-            _context.SaveChanges();
-        }
-
-        return reserved;
-    }
-
-    /// <inheritdoc />
-    public void ReleaseSeats(Guid eventId)
-    {
-        var eventItem = _context.Events.FirstOrDefault(item => item.Id == eventId);
-        if (eventItem is null)
-        {
-            return;
-        }
-
-        eventItem.ReleaseSeats();
-        _context.SaveChanges();
-    }
-
     private static void ValidateQuery(GetEventsQuery query)
     {
         if (query.From.HasValue && query.To.HasValue && query.From.Value > query.To.Value)

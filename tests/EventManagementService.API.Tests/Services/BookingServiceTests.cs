@@ -1,9 +1,11 @@
 using EventManagementService.API.Exceptions;
+using EventManagementService.API.DataAccess;
 using EventManagementService.API.Models;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
 
 namespace EventManagementService.API.Tests.Services;
@@ -218,15 +220,20 @@ public class BookingServiceTests
         const int totalSeats = 5;
         const int concurrentRequests = 20;
 
-        using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
-        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
-            title: "Конкурентное событие",
-            description: null,
-            startAt: new DateTime(2026, 5, 12, 10, 0, 0),
-            endAt: new DateTime(2026, 5, 12, 12, 0, 0),
-            totalSeats: totalSeats));
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
+        Guid eventId;
+        using (var seedScope = serviceProvider.CreateScope())
+        {
+            var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var eventService = new EventService(seedContext);
+            var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+                title: "Конкурентное событие",
+                description: null,
+                startAt: new DateTime(2026, 5, 12, 10, 0, 0),
+                endAt: new DateTime(2026, 5, 12, 12, 0, 0),
+                totalSeats: totalSeats));
+            eventId = createdEvent.Id;
+        }
 
         var exceptions = new ConcurrentBag<Exception>();
 
@@ -235,7 +242,10 @@ public class BookingServiceTests
         {
             try
             {
-                await bookingService.CreateBookingAsync(createdEvent.Id);
+                using var scope = serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var bookingService = new BookingService(context);
+                await bookingService.CreateBookingAsync(eventId);
             }
             catch (NoAvailableSeatsException ex)
             {
@@ -250,7 +260,10 @@ public class BookingServiceTests
         successCount.Should().Be(totalSeats);
         exceptions.Should().HaveCount(concurrentRequests - totalSeats);
 
-        var finalEvent = await eventService.GetEventByIdAsync(createdEvent.Id);
+        using var assertScope = serviceProvider.CreateScope();
+        var assertContext = assertScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var assertEventService = new EventService(assertContext);
+        var finalEvent = await assertEventService.GetEventByIdAsync(eventId);
         finalEvent.AvailableSeats.Should().Be(0);
     }
 
@@ -260,19 +273,30 @@ public class BookingServiceTests
         // Arrange
         const int totalSeats = 10;
 
-        using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
-        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
-            title: "Событие для Id-проверки",
-            description: null,
-            startAt: new DateTime(2026, 5, 13, 10, 0, 0),
-            endAt: new DateTime(2026, 5, 13, 12, 0, 0),
-            totalSeats: totalSeats));
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
+        Guid eventId;
+        using (var seedScope = serviceProvider.CreateScope())
+        {
+            var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var eventService = new EventService(seedContext);
+            var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+                title: "Событие для Id-проверки",
+                description: null,
+                startAt: new DateTime(2026, 5, 13, 10, 0, 0),
+                endAt: new DateTime(2026, 5, 13, 12, 0, 0),
+                totalSeats: totalSeats));
+            eventId = createdEvent.Id;
+        }
 
         // Act — ровно totalSeats параллельных запросов, все должны пройти
         var tasks = Enumerable.Range(0, totalSeats)
-            .Select(_ => bookingService.CreateBookingAsync(createdEvent.Id));
+            .Select(async _ =>
+            {
+                using var scope = serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var bookingService = new BookingService(context);
+                return await bookingService.CreateBookingAsync(eventId);
+            });
 
         var bookings = await Task.WhenAll(tasks);
 

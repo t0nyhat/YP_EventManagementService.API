@@ -84,15 +84,6 @@ public class Booking
         SetProcessedState(BookingStatus.Rejected, processedAt ?? DateTime.UtcNow);
     }
 
-    /// <summary>
-    /// Creates a detached copy of the current booking state.
-    /// </summary>
-    /// <returns>A copy of the booking.</returns>
-    internal Booking Snapshot()
-    {
-        return new Booking(Id, EventId, Status, CreatedAt, ProcessedAt);
-    }
-
     private void SetProcessedState(BookingStatus targetStatus, DateTime processedAt)
     {
         if (Status != BookingStatus.Pending)

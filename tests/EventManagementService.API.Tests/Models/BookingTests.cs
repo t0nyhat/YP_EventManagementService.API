@@ -100,8 +100,9 @@ public class BookingTests
         // Simulate rejection + seat release (what background service does on error/delete path)
         var storedBooking = await context.Bookings.FindAsync(firstBooking.Id);
         storedBooking!.Reject(DateTime.UtcNow);
+        var storedEvent = await context.Events.FindAsync(createdEvent.Id);
+        storedEvent!.ReleaseSeats();
         await context.SaveChangesAsync();
-        eventService.ReleaseSeats(createdEvent.Id);
 
         // Act: now there should be a free seat again
         var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id);

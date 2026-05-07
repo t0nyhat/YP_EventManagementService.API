@@ -41,9 +41,5 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<Event>
             .HasColumnName("available_seats")
             .IsRequired();
 
-        builder.HasMany(eventModel => eventModel.Bookings)
-            .WithOne(booking => booking.Event)
-            .HasForeignKey(booking => booking.EventId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

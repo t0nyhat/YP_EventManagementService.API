@@ -50,18 +50,4 @@ public interface IEventService
     /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
     Task DeleteEventAsync(Guid id);
 
-    /// <summary>
-    /// Atomically attempts to reserve one seat for the specified event.
-    /// </summary>
-    /// <param name="eventId">The unique identifier of the event.</param>
-    /// <returns><c>true</c> if a seat was reserved; <c>false</c> if no seats are available.</returns>
-    /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
-    bool TryReserveSeats(Guid eventId);
-
-    /// <summary>
-    /// Atomically releases one seat back to the specified event.
-    /// Has no effect if the event no longer exists.
-    /// </summary>
-    /// <param name="eventId">The unique identifier of the event.</param>
-    void ReleaseSeats(Guid eventId);
 }
