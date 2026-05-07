@@ -1,7 +1,7 @@
+using EventManagementService.API.DataAccess;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
-using EventManagementService.API.Services;
-using EventManagementService.API.Stores;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventManagementService.API.BackgroundServices;
 
@@ -15,26 +15,19 @@ public class BookingProcessingBackgroundService : BackgroundService
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan ProcessingDelay = TimeSpan.FromSeconds(2);
 
-    private readonly IBookingStore _bookingStore;
-    private readonly IEventService _eventService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BookingProcessingBackgroundService> _logger;
-
-    // Serializes write operations (status updates) while allowing delays to run in parallel.
-    private readonly SemaphoreSlim _processingSemaphore = new(1, 1);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BookingProcessingBackgroundService"/> class.
     /// </summary>
-    /// <param name="bookingStore">Shared in-memory booking store.</param>
-    /// <param name="eventService">Event service used to verify event existence and release seats.</param>
+    /// <param name="scopeFactory">Factory used to create scoped services for each processing cycle.</param>
     /// <param name="logger">Application logger.</param>
     public BookingProcessingBackgroundService(
-        IBookingStore bookingStore,
-        IEventService eventService,
+        IServiceScopeFactory scopeFactory,
         ILogger<BookingProcessingBackgroundService> logger)
     {
-        _bookingStore = bookingStore ?? throw new ArgumentNullException(nameof(bookingStore));
-        _eventService = eventService ?? throw new ArgumentNullException(nameof(eventService));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -47,11 +40,19 @@ public class BookingProcessingBackgroundService : BackgroundService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var pendingIds = _bookingStore.GetPendingIds();
+                List<Guid> pendingIds;
+
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    pendingIds = await context.Bookings
+                        .Where(booking => booking.Status == BookingStatus.Pending)
+                        .Select(booking => booking.Id)
+                        .ToListAsync(stoppingToken);
+                }
 
                 if (pendingIds.Count > 0)
                 {
-                    // Delays for all bookings run in parallel; writes are serialized inside ProcessBookingAsync.
                     var tasks = pendingIds.Select(id => ProcessBookingAsync(id, stoppingToken));
                     await Task.WhenAll(tasks);
                 }
@@ -78,14 +79,12 @@ public class BookingProcessingBackgroundService : BackgroundService
         {
             throw;
         }
-
-        var semaphoreAcquired = false;
         try
         {
-            await _processingSemaphore.WaitAsync(cancellationToken);
-            semaphoreAcquired = true;
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var booking = _bookingStore.GetById(bookingId);
+            var booking = await context.Bookings.FirstOrDefaultAsync(item => item.Id == bookingId, cancellationToken);
             if (booking is null || booking.Status != BookingStatus.Pending)
             {
                 _logger.LogInformation(
@@ -94,23 +93,19 @@ public class BookingProcessingBackgroundService : BackgroundService
                 return;
             }
 
-            Event? eventItem = null;
-            try
-            {
-                eventItem = _eventService.GetEventById(booking.EventId);
-            }
-            catch (NotFoundException) { }
-
+            var eventItem = await context.Events.FirstOrDefaultAsync(item => item.Id == booking.EventId, cancellationToken);
             if (eventItem is null)
             {
-                _bookingStore.TrySetStatus(bookingId, BookingStatus.Rejected, DateTime.UtcNow);
+                booking.Reject(DateTime.UtcNow);
+                await context.SaveChangesAsync(cancellationToken);
                 _logger.LogWarning(
                     "Событие для бронирования с id {BookingId} удалено. Бронирование отклонено.",
                     bookingId);
                 return;
             }
 
-            _bookingStore.TrySetStatus(bookingId, BookingStatus.Confirmed, DateTime.UtcNow);
+            booking.Confirm(DateTime.UtcNow);
+            await context.SaveChangesAsync(cancellationToken);
             _logger.LogInformation("Бронирование с id {BookingId} переведено в статус Confirmed.", bookingId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -124,18 +119,18 @@ public class BookingProcessingBackgroundService : BackgroundService
                 "Ошибка при фоновой обработке бронирования с id {BookingId}.",
                 bookingId);
 
-            var booking = _bookingStore.GetById(bookingId);
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var booking = await context.Bookings.FirstOrDefaultAsync(item => item.Id == bookingId, cancellationToken);
+
             if (booking is not null && booking.Status == BookingStatus.Pending)
             {
-                _bookingStore.TrySetStatus(bookingId, BookingStatus.Rejected, DateTime.UtcNow);
-                _eventService.ReleaseSeats(booking.EventId);
-            }
-        }
-        finally
-        {
-            if (semaphoreAcquired)
-            {
-                _processingSemaphore.Release();
+                booking.Reject(DateTime.UtcNow);
+
+                var eventItem = await context.Events.FirstOrDefaultAsync(item => item.Id == booking.EventId, cancellationToken);
+                eventItem?.ReleaseSeats();
+
+                await context.SaveChangesAsync(cancellationToken);
             }
         }
     }

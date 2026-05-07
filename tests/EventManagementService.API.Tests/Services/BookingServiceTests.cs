@@ -1,8 +1,9 @@
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 using EventManagementService.API.Services;
-using EventManagementService.API.Stores;
+using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
 namespace EventManagementService.API.Tests.Services;
@@ -13,9 +14,9 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_WhenEventExists_ReturnsPendingBooking()
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingStore = new InMemoryBookingStore();
-        var bookingService = new BookingService(bookingStore, eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Конференция",
             description: "Проверка бронирования",
@@ -30,16 +31,16 @@ public class BookingServiceTests
         booking.EventId.Should().Be(createdEvent.Id);
         booking.Status.Should().Be(BookingStatus.Pending);
         booking.ProcessedAt.Should().BeNull();
-        bookingStore.GetById(booking.Id).Should().NotBeNull();
+        (await context.Bookings.FirstOrDefaultAsync(item => item.Id == booking.Id)).Should().NotBeNull();
     }
 
     [Fact]
     public async Task CreateBookingAsync_WhenCreatingMultipleBookingsForSameEvent_ReturnsUniqueIds()
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingStore = new InMemoryBookingStore();
-        var bookingService = new BookingService(bookingStore, eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Митап",
             description: "Несколько броней",
@@ -60,9 +61,9 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_WhenBookingExists_ReturnsStoredBooking()
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingStore = new InMemoryBookingStore();
-        var bookingService = new BookingService(bookingStore, eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Воркшоп",
             description: "Поиск по id",
@@ -85,9 +86,9 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_WhenBookingStatusChanges_ReturnsUpdatedBooking(BookingStatus status)
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingStore = new InMemoryBookingStore();
-        var bookingService = new BookingService(bookingStore, eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Статусная проверка",
             description: "Подтверждение или отказ",
@@ -95,7 +96,18 @@ public class BookingServiceTests
             endAt: new DateTime(2026, 5, 13, 14, 0, 0)));
         var createdBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
         var processedAt = new DateTime(2026, 5, 13, 12, 10, 0, DateTimeKind.Utc);
-        bookingStore.TrySetStatus(createdBooking.Id, status, processedAt);
+        var storedBooking = await context.Bookings.FirstAsync(item => item.Id == createdBooking.Id);
+        switch (status)
+        {
+            case BookingStatus.Confirmed:
+                storedBooking.Confirm(processedAt);
+                break;
+            case BookingStatus.Rejected:
+                storedBooking.Reject(processedAt);
+                break;
+        }
+
+        await context.SaveChangesAsync();
 
         // Act
         var booking = await bookingService.GetBookingByIdAsync(createdBooking.Id);
@@ -109,7 +121,8 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var bookingService = new BookingService(new InMemoryBookingStore(), new EventService());
+        using var context = TestDbContextFactory.CreateContext();
+        var bookingService = new BookingService(context);
 
         // Act
         var action = async () => await bookingService.CreateBookingAsync(Guid.NewGuid());
@@ -122,8 +135,9 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_WhenEventWasDeleted_ThrowsNotFoundException()
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Удаляемое событие",
             description: "Проверка удаленного события",
@@ -142,7 +156,8 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_WhenBookingDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var bookingService = new BookingService(new InMemoryBookingStore(), new EventService());
+        using var context = TestDbContextFactory.CreateContext();
+        var bookingService = new BookingService(context);
 
         // Act
         var action = async () => await bookingService.GetBookingByIdAsync(Guid.NewGuid());
@@ -155,8 +170,9 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_WhenSeatsAreAvailable_DecreasesAvailableSeats()
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Событие с местами",
             description: null,
@@ -176,8 +192,9 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_WhenAllSeatsAreTaken_ThrowsNoAvailableSeatsException()
     {
         // Arrange
-        var eventService = new EventService();
-        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Однoместное событие",
             description: null,
@@ -201,8 +218,9 @@ public class BookingServiceTests
         const int totalSeats = 5;
         const int concurrentRequests = 20;
 
-        var eventService = new EventService();
-        var bookingService = new BookingService(new InMemoryBookingStore(), eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Конкурентное событие",
             description: null,
@@ -242,9 +260,9 @@ public class BookingServiceTests
         // Arrange
         const int totalSeats = 10;
 
-        var eventService = new EventService();
-        var bookingStore = new InMemoryBookingStore();
-        var bookingService = new BookingService(bookingStore, eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
         var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
             title: "Событие для Id-проверки",
             description: null,

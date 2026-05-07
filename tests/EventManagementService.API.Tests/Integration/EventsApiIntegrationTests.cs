@@ -3,11 +3,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using EventManagementService.API.BackgroundServices;
 using EventManagementService.API.Controllers;
+using EventManagementService.API.DataAccess;
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Middleware;
 using EventManagementService.API.Models;
 using EventManagementService.API.Services;
-using EventManagementService.API.Stores;
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -279,6 +280,7 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
+        var databaseName = Guid.NewGuid().ToString();
         _host = await new HostBuilder()
             .ConfigureWebHost(webBuilder =>
             {
@@ -310,9 +312,10 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                             };
                         };
                     });
-                    services.AddSingleton<IEventService, EventService>();
-                    services.AddSingleton<IBookingStore, InMemoryBookingStore>();
-                    services.AddSingleton<IBookingService, BookingService>();
+                    services.AddDbContext<AppDbContext>(options =>
+                        options.UseInMemoryDatabase(databaseName));
+                    services.AddScoped<IEventService, EventService>();
+                    services.AddScoped<IBookingService, BookingService>();
                     services.AddHostedService<BookingProcessingBackgroundService>();
                 });
                 webBuilder.Configure(app =>

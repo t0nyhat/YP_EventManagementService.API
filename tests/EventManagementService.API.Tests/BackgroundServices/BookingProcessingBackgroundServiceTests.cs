@@ -1,11 +1,11 @@
 using EventManagementService.API.BackgroundServices;
-using EventManagementService.API.Exceptions;
+using EventManagementService.API.DataAccess;
 using EventManagementService.API.Models;
-using EventManagementService.API.Services;
-using EventManagementService.API.Stores;
+using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EventManagementService.API.Tests.BackgroundServices;
 
@@ -15,18 +15,12 @@ public class BookingProcessingBackgroundServiceTests
     public async Task ExecuteAsync_WhenPendingBookingExists_ConfirmsBookingAndSetsProcessedAt()
     {
         // Arrange
-        var eventId = Guid.NewGuid();
-        var eventService = new Mock<IEventService>();
-        eventService
-            .Setup(service => service.GetEventById(eventId))
-            .Returns(Event.Create("Событие", new DateTime(2026, 5, 1, 10, 0, 0), new DateTime(2026, 5, 1, 12, 0, 0), 10));
-
-        var store = new InMemoryBookingStore();
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var createdAt = new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc);
-        var booking = store.Add(Booking.CreatePending(eventId, createdAt));
+        var eventId = await SeedEventAsync(serviceProvider);
+        var bookingId = await SeedBookingAsync(serviceProvider, Booking.CreatePending(eventId, createdAt));
         var worker = new BookingProcessingBackgroundService(
-            store,
-            eventService.Object,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<BookingProcessingBackgroundService>.Instance);
 
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
@@ -34,7 +28,7 @@ public class BookingProcessingBackgroundServiceTests
         {
             // Act
             await worker.StartAsync(cancellation.Token);
-            var processedBooking = await WaitForBookingStatusAsync(store, booking.Id, BookingStatus.Confirmed, TimeSpan.FromSeconds(5));
+            var processedBooking = await WaitForBookingStatusAsync(serviceProvider, bookingId, BookingStatus.Confirmed, TimeSpan.FromSeconds(5));
 
             // Assert
             processedBooking.Status.Should().Be(BookingStatus.Confirmed);
@@ -52,18 +46,12 @@ public class BookingProcessingBackgroundServiceTests
     public async Task ExecuteAsync_WhenEventIsDeletedBeforeProcessing_RejectsBooking()
     {
         // Arrange
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var eventId = Guid.NewGuid();
-        var eventService = new Mock<IEventService>();
-        eventService
-            .Setup(service => service.GetEventById(eventId))
-            .Throws(new NotFoundException("Событие не найдено."));
-
-        var store = new InMemoryBookingStore();
-        var booking = store.Add(Booking.CreatePending(eventId));
+        var bookingId = await SeedBookingAsync(serviceProvider, Booking.CreatePending(eventId));
 
         var worker = new BookingProcessingBackgroundService(
-            store,
-            eventService.Object,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<BookingProcessingBackgroundService>.Instance);
 
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
@@ -71,7 +59,7 @@ public class BookingProcessingBackgroundServiceTests
         {
             // Act
             await worker.StartAsync(cancellation.Token);
-            var processedBooking = await WaitForBookingStatusAsync(store, booking.Id, BookingStatus.Rejected, TimeSpan.FromSeconds(5));
+            var processedBooking = await WaitForBookingStatusAsync(serviceProvider, bookingId, BookingStatus.Rejected, TimeSpan.FromSeconds(5));
 
             // Assert
             processedBooking.Status.Should().Be(BookingStatus.Rejected);
@@ -85,21 +73,18 @@ public class BookingProcessingBackgroundServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenEventServiceThrows_RejectsBookingAndReleasesSeats()
+    public async Task ExecuteAsync_WhenBookingAlreadyProcessed_SkipsItWithoutChangingStatus()
     {
         // Arrange
-        var eventId = Guid.NewGuid();
-        var eventService = new Mock<IEventService>();
-        eventService
-            .Setup(service => service.GetEventById(eventId))
-            .Throws(new InvalidOperationException("Симулированная ошибка при получении события."));
-
-        var store = new InMemoryBookingStore();
-        var booking = store.Add(Booking.CreatePending(eventId));
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
+        var processedAt = DateTime.UtcNow;
+        var eventId = await SeedEventAsync(serviceProvider);
+        var booking = Booking.CreatePending(eventId);
+        booking.Confirm(processedAt);
+        await SeedBookingAsync(serviceProvider, booking);
 
         var worker = new BookingProcessingBackgroundService(
-            store,
-            eventService.Object,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<BookingProcessingBackgroundService>.Instance);
 
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
@@ -107,11 +92,13 @@ public class BookingProcessingBackgroundServiceTests
         {
             // Act
             await worker.StartAsync(cancellation.Token);
-            var processedBooking = await WaitForBookingStatusAsync(store, booking.Id, BookingStatus.Rejected, TimeSpan.FromSeconds(5));
+            await Task.Delay(TimeSpan.FromSeconds(3), cancellation.Token);
+            var storedBooking = await GetBookingAsync(serviceProvider, booking.Id);
 
             // Assert
-            processedBooking.Status.Should().Be(BookingStatus.Rejected);
-            eventService.Verify(service => service.ReleaseSeats(eventId), Times.Once);
+            storedBooking.Should().NotBeNull();
+            storedBooking!.Status.Should().Be(BookingStatus.Confirmed);
+            storedBooking.ProcessedAt.Should().Be(processedAt);
         }
         finally
         {
@@ -125,20 +112,16 @@ public class BookingProcessingBackgroundServiceTests
     {
         // Arrange
         const int bookingCount = 3;
-        var eventId = Guid.NewGuid();
-        var eventService = new Mock<IEventService>();
-        eventService
-            .Setup(service => service.GetEventById(eventId))
-            .Returns(Event.Create("Параллельное событие", new DateTime(2026, 5, 4, 10, 0, 0), new DateTime(2026, 5, 4, 12, 0, 0), bookingCount));
-
-        var store = new InMemoryBookingStore();
-        var bookings = Enumerable.Range(0, bookingCount)
-            .Select(_ => store.Add(Booking.CreatePending(eventId)))
-            .ToArray();
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
+        var eventId = await SeedEventAsync(serviceProvider, bookingCount);
+        var bookingIds = new List<Guid>();
+        foreach (var booking in Enumerable.Range(0, bookingCount).Select(_ => Booking.CreatePending(eventId)))
+        {
+            bookingIds.Add(await SeedBookingAsync(serviceProvider, booking));
+        }
 
         var worker = new BookingProcessingBackgroundService(
-            store,
-            eventService.Object,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<BookingProcessingBackgroundService>.Instance);
 
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(12));
@@ -150,15 +133,15 @@ public class BookingProcessingBackgroundServiceTests
             await worker.StartAsync(cancellation.Token);
 
             // Wait for all bookings to be confirmed.
-            await Task.WhenAll(bookings.Select(b =>
-                WaitForBookingStatusAsync(store, b.Id, BookingStatus.Confirmed, TimeSpan.FromSeconds(8))));
+            await Task.WhenAll(bookingIds.Select(id =>
+                WaitForBookingStatusAsync(serviceProvider, id, BookingStatus.Confirmed, TimeSpan.FromSeconds(8))));
 
             var elapsed = DateTime.UtcNow - startedAt;
 
             // Assert: all three bookings confirmed
-            foreach (var b in bookings)
+            foreach (var bookingId in bookingIds)
             {
-                store.GetById(b.Id)!.Status.Should().Be(BookingStatus.Confirmed);
+                (await GetBookingAsync(serviceProvider, bookingId))!.Status.Should().Be(BookingStatus.Confirmed);
             }
 
             // With Task.WhenAll the total elapsed time should be closer to one
@@ -176,11 +159,9 @@ public class BookingProcessingBackgroundServiceTests
     public async Task ExecuteAsync_WhenCancelled_StopsGracefullyWithoutException()
     {
         // Arrange
-        var eventService = new Mock<IEventService>();
-        var store = new InMemoryBookingStore();
+        using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var worker = new BookingProcessingBackgroundService(
-            store,
-            eventService.Object,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<BookingProcessingBackgroundService>.Instance);
 
         using var cancellation = new CancellationTokenSource();
@@ -195,8 +176,39 @@ public class BookingProcessingBackgroundServiceTests
         await act.Should().NotThrowAsync();
     }
 
+    private static async Task<Guid> SeedEventAsync(IServiceProvider serviceProvider, int totalSeats = 10)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var eventItem = Event.Create(
+            "Событие",
+            new DateTime(2026, 5, 1, 10, 0, 0),
+            new DateTime(2026, 5, 1, 12, 0, 0),
+            totalSeats);
+
+        context.Events.Add(eventItem);
+        await context.SaveChangesAsync();
+        return eventItem.Id;
+    }
+
+    private static async Task<Guid> SeedBookingAsync(IServiceProvider serviceProvider, Booking booking)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        context.Bookings.Add(booking);
+        await context.SaveChangesAsync();
+        return booking.Id;
+    }
+
+    private static async Task<Booking?> GetBookingAsync(IServiceProvider serviceProvider, Guid bookingId)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await context.Bookings.FirstOrDefaultAsync(item => item.Id == bookingId);
+    }
+
     private static async Task<Booking> WaitForBookingStatusAsync(
-        InMemoryBookingStore store,
+        IServiceProvider serviceProvider,
         Guid bookingId,
         BookingStatus expectedStatus,
         TimeSpan timeout)
@@ -205,7 +217,7 @@ public class BookingProcessingBackgroundServiceTests
 
         while (DateTime.UtcNow <= deadline)
         {
-            var booking = store.GetById(bookingId);
+            var booking = await GetBookingAsync(serviceProvider, bookingId);
 
             if (booking is not null && booking.Status == expectedStatus)
             {

@@ -1,8 +1,9 @@
 using EventManagementService.API.BackgroundServices;
+using EventManagementService.API.DataAccess;
 using EventManagementService.API.Middleware;
 using EventManagementService.API.Services;
-using EventManagementService.API.Stores;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,11 +45,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 
-// Registers IEventService as Singleton: single instance shared across all requests.
-// Suitable for in-memory storage since the same data collection is used for the app lifetime.
-builder.Services.AddSingleton<IEventService, EventService>();
-builder.Services.AddSingleton<IBookingStore, InMemoryBookingStore>();
-builder.Services.AddSingleton<IBookingService, BookingService>();
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddHostedService<BookingProcessingBackgroundService>();
 
 var app = builder.Build();

@@ -1,4 +1,6 @@
 using EventManagementService.API.Models;
+using EventManagementService.API.Services;
+using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Models;
@@ -83,9 +85,9 @@ public class BookingTests
     public async Task BookingService_AfterRejectAndReleaseSeats_AllowsNewBookingOnSameEvent()
     {
         // Arrange: event with 1 seat, one booking reserved and then rejected + seat released
-        var eventService = new EventManagementService.API.Services.EventService();
-        var bookingStore = new EventManagementService.API.Stores.InMemoryBookingStore();
-        var bookingService = new EventManagementService.API.Services.BookingService(bookingStore, eventService);
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(context);
+        var bookingService = new BookingService(context);
 
         var createdEvent = eventService.CreateEvent(Event.Create(
             "Событие с возвратом",
@@ -96,7 +98,9 @@ public class BookingTests
         var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
 
         // Simulate rejection + seat release (what background service does on error/delete path)
-        bookingStore.TrySetStatus(firstBooking.Id, BookingStatus.Rejected, DateTime.UtcNow);
+        var storedBooking = await context.Bookings.FindAsync(firstBooking.Id);
+        storedBooking!.Reject(DateTime.UtcNow);
+        await context.SaveChangesAsync();
         eventService.ReleaseSeats(createdEvent.Id);
 
         // Act: now there should be a free seat again

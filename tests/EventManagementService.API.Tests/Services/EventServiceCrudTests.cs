@@ -1,6 +1,7 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Services;
+using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Services;
@@ -11,7 +12,7 @@ public class EventServiceCrudTests
     public void CreateEvent_WhenEventIsValid_CreatesEventWithGeneratedId()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var newEvent = EventTestData.CreateEvent(
             title: "Конференция .NET",
             description: "Технологическое мероприятие",
@@ -35,7 +36,7 @@ public class EventServiceCrudTests
     public void GetEvents_WhenEventsExist_ReturnsAllEventsOnSinglePage()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var firstEvent = service.CreateEvent(EventTestData.CreateEvent(
             title: "Лекция",
             description: "Первая лекция",
@@ -65,7 +66,7 @@ public class EventServiceCrudTests
     public void GetEventById_WhenEventExists_ReturnsRequestedEvent()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
             title: "Митап",
             description: "Встреча сообщества",
@@ -87,7 +88,7 @@ public class EventServiceCrudTests
     public void UpdateEvent_WhenEventExists_UpdatesEventFields()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
             title: "Старое название",
             description: "Старое описание",
@@ -116,7 +117,7 @@ public class EventServiceCrudTests
     public void UpdateEvent_WhenDescriptionIsNull_ClearsDescription()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
             title: "Событие с описанием",
             description: "Описание будет очищено",
@@ -145,7 +146,7 @@ public class EventServiceCrudTests
     public void DeleteEvent_WhenEventExists_RemovesEventFromStorage()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
             title: "Удаляемое событие",
             description: "Будет удалено",

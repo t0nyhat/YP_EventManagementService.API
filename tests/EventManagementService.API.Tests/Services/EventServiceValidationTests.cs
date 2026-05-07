@@ -2,6 +2,7 @@ using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
 using EventManagementService.API.Services;
+using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Services;
@@ -12,7 +13,7 @@ public class EventServiceValidationTests
     public void GetEventById_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
         var action = () => service.GetEventById(Guid.NewGuid());
@@ -25,7 +26,7 @@ public class EventServiceValidationTests
     public void UpdateEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var request = new UpdateEventRequest
         {
             Title = "Обновление",
@@ -45,7 +46,7 @@ public class EventServiceValidationTests
     public void DeleteEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
         var action = () => service.DeleteEvent(Guid.NewGuid());
@@ -103,7 +104,7 @@ public class EventServiceValidationTests
     public void UpdateEvent_WhenEndAtIsEarlierThanStartAt_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
         var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
             title: "Корректное событие",
             description: "Будет обновлено",
@@ -129,7 +130,7 @@ public class EventServiceValidationTests
     public void GetEvents_WhenPageIsLessThanOne_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
         var action = () => service.GetEvents(new GetEventsQuery
@@ -146,7 +147,7 @@ public class EventServiceValidationTests
     public void GetEvents_WhenFromIsLaterThanTo_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
         var action = () => service.GetEvents(new GetEventsQuery
@@ -166,7 +167,7 @@ public class EventServiceValidationTests
     public void GetEvents_WhenPageSizeIsGreaterThanHundred_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
         var action = () => service.GetEvents(new GetEventsQuery

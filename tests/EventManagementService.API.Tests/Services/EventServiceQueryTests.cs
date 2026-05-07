@@ -1,5 +1,6 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Services;
+using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Services;
@@ -176,7 +177,7 @@ public class EventServiceQueryTests
 
     private static EventService CreateServiceWithSampleEvents()
     {
-        var service = new EventService();
+        var service = new EventService(TestDbContextFactory.CreateContext());
 
         service.CreateEvent(EventTestData.CreateEvent(
             title: "Введение в C#",
