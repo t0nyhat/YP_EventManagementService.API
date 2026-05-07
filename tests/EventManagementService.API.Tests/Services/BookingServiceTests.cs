@@ -16,6 +16,7 @@ public class BookingServiceTests
     public async Task CreateBookingAsync_WhenEventExists_ReturnsPendingBooking()
     {
         // Arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
@@ -33,7 +34,7 @@ public class BookingServiceTests
         booking.EventId.Should().Be(createdEvent.Id);
         booking.Status.Should().Be(BookingStatus.Pending);
         booking.ProcessedAt.Should().BeNull();
-        (await context.Bookings.FirstOrDefaultAsync(item => item.Id == booking.Id)).Should().NotBeNull();
+        (await context.Bookings.FirstOrDefaultAsync(item => item.Id == booking.Id, cancellationToken)).Should().NotBeNull();
     }
 
     [Fact]
@@ -88,6 +89,7 @@ public class BookingServiceTests
     public async Task GetBookingByIdAsync_WhenBookingStatusChanges_ReturnsUpdatedBooking(BookingStatus status)
     {
         // Arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
@@ -98,7 +100,7 @@ public class BookingServiceTests
             endAt: new DateTime(2026, 5, 13, 14, 0, 0)));
         var createdBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
         var processedAt = new DateTime(2026, 5, 13, 12, 10, 0, DateTimeKind.Utc);
-        var storedBooking = await context.Bookings.FirstAsync(item => item.Id == createdBooking.Id);
+        var storedBooking = await context.Bookings.FirstAsync(item => item.Id == createdBooking.Id, cancellationToken);
         switch (status)
         {
             case BookingStatus.Confirmed:
@@ -109,7 +111,7 @@ public class BookingServiceTests
                 break;
         }
 
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(cancellationToken);
 
         // Act
         var booking = await bookingService.GetBookingByIdAsync(createdBooking.Id);

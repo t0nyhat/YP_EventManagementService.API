@@ -85,6 +85,7 @@ public class BookingTests
     public async Task BookingService_AfterRejectAndReleaseSeats_AllowsNewBookingOnSameEvent()
     {
         // Arrange: event with 1 seat, one booking reserved and then rejected + seat released
+        var cancellationToken = TestContext.Current.CancellationToken;
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
@@ -98,11 +99,11 @@ public class BookingTests
         var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
 
         // Simulate rejection + seat release (what background service does on error/delete path)
-        var storedBooking = await context.Bookings.FindAsync(firstBooking.Id);
+        var storedBooking = await context.Bookings.FindAsync([firstBooking.Id], cancellationToken);
         storedBooking!.Reject(DateTime.UtcNow);
-        var storedEvent = await context.Events.FindAsync(createdEvent.Id);
+        var storedEvent = await context.Events.FindAsync([createdEvent.Id], cancellationToken);
         storedEvent!.ReleaseSeats();
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(cancellationToken);
 
         // Act: now there should be a free seat again
         var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
