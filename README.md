@@ -1,12 +1,35 @@
 # EventManagementService.API
 
-REST API для управления событиями на ASP.NET Core Web API.
+REST API для управления событиями и бронированиями на ASP.NET Core Web API.
+
+## Технологии
+
+- .NET SDK 10+
+- ASP.NET Core Web API
+- Entity Framework Core
+- PostgreSQL (`Npgsql`)
+- xUnit + InMemory EF Provider для тестов
 
 ## Требования
 
-- .NET SDK 10.0+
+1. .NET SDK 10+
+2. Docker (для запуска PostgreSQL)
 
-## Запуск
+## Быстрый старт
+
+### 1. Поднять PostgreSQL
+
+```bash
+docker compose up -d
+```
+
+Проверка статуса:
+
+```bash
+docker compose ps
+```
+
+### 2. Запустить API
 
 ```bash
 dotnet restore
@@ -14,10 +37,24 @@ dotnet build
 dotnet run --project src/EventManagementService.API/EventManagementService.API.csproj
 ```
 
-## Запуск тестов
+При первом запуске таблицы будут созданы автоматически через `EnsureCreated`.
+
+### 3. Запустить тесты
 
 ```bash
 dotnet test EventManagementService.API.sln
+```
+
+## Конфигурация подключения
+
+По умолчанию используется строка подключения из `src/EventManagementService.API/appsettings.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=eventapi;Username=postgres;Password=postgres"
+  }
+}
 ```
 
 ## Swagger / OpenAPI
@@ -29,26 +66,26 @@ dotnet test EventManagementService.API.sln
 
 ## Эндпоинты
 
-Эндпоинты событий:
+События:
 
-- `GET /api/events` — получить список событий с фильтрацией и пагинацией
-- `GET /api/events/{id}` — получить событие по `id`
+- `GET /api/events` — список с фильтрацией и пагинацией
+- `GET /api/events/{id}` — событие по `id`
 - `POST /api/events` — создать событие
 - `PUT /api/events/{id}` — обновить событие
 - `DELETE /api/events/{id}` — удалить событие
-- `POST /api/events/{id}/book` — создать бронирование для события
+- `POST /api/events/{id}/book` — создать бронирование
 
-Эндпоинты бронирований:
+Бронирования:
 
-- `GET /api/bookings/{id}` — получить текущее состояние бронирования по `id`
+- `GET /api/bookings/{id}` — текущее состояние бронирования
 
 ## Фильтрация и пагинация
 
 `GET /api/events` поддерживает query-параметры:
 
 - `title` — поиск по названию, регистронезависимый, частичное совпадение
-- `from` — вернуть события, которые начинаются не раньше указанной даты
-- `to` — вернуть события, которые заканчиваются не позже указанной даты
+- `from` — события не раньше указанной даты
+- `to` — события не позже указанной даты
 - `page` — номер страницы, по умолчанию `1`
 - `pageSize` — размер страницы, по умолчанию `10`
 
@@ -71,26 +108,17 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
       "endAt": "2026-05-02T13:00:00",
       "totalSeats": 50,
       "availableSeats": 47
-    },
-    {
-      "id": "7a5fd9f7-6425-4f31-9dd4-2597f431ce92",
-      "title": "DotNet Meetup",
-      "description": "Встреча сообщества",
-      "startAt": "2026-05-04T18:00:00",
-      "endAt": "2026-05-04T20:00:00",
-      "totalSeats": 100,
-      "availableSeats": 100
     }
   ],
   "page": 1,
-  "count": 2,
-  "totalCount": 2
+  "count": 1,
+  "totalCount": 1
 }
 ```
 
-## Пример тела запроса
+## Примеры тел запросов
 
-`POST /api/events` принимает тело:
+`POST /api/events`:
 
 ```json
 {
@@ -102,7 +130,7 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 }
 ```
 
-`PUT /api/events/{id}` принимает тело без поля `totalSeats` — вместимость не меняется при обновлении:
+`PUT /api/events/{id}` — без поля `totalSeats`, вместимость не меняется при обновлении:
 
 ```json
 {
@@ -113,25 +141,17 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 }
 ```
 
-`POST /api/events/{id}/book` не принимает JSON-тело. Идентификатор события передаётся через route-параметр `{id}`.
+`POST /api/events/{id}/book` — тело не нужно, `id` события передаётся в URL.
 
 ## Бронирования
 
-Модель `Booking` содержит поля:
-
-- `id` — идентификатор бронирования
-- `eventId` — идентификатор события
-- `status` — статус бронирования
-- `createdAt` — время создания
-- `processedAt` — время обработки, `null` до завершения фоновой обработки
-
 Статусы `BookingStatus`:
 
-- `Pending` — бронирование создано и ожидает обработки
-- `Confirmed` — бронирование подтверждено
-- `Rejected` — бронирование отклонено
+- `Pending` — создано, ожидает обработки
+- `Confirmed` — подтверждено
+- `Rejected` — отклонено
 
-Пример ответа для `POST /api/events/{id}/book` и `GET /api/bookings/{id}`:
+Пример ответа `POST /api/events/{id}/book` и `GET /api/bookings/{id}`:
 
 ```json
 {
@@ -143,43 +163,36 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 }
 ```
 
-`POST /api/events/{id}/book` возвращает:
-
-- `202 Accepted`
-- тело с созданным бронированием
-- заголовок `Location` со ссылкой на ресурс бронирования: `/api/bookings/{bookingId}`
+`POST /api/events/{id}/book` возвращает `202 Accepted` и заголовок `Location: /api/bookings/{bookingId}`.
 
 ## Вместимость события
 
-Каждое событие имеет ограниченное количество мест:
+- `totalSeats` — задаётся при создании, не меняется при обновлении
+- `availableSeats` — уменьшается с каждым успешным бронированием
 
-- `totalSeats` — общая вместимость, задаётся при создании, не меняется при обновлении
-- `availableSeats` — текущее количество свободных мест; при создании равно `totalSeats`, уменьшается с каждым успешным бронированием
-
-При создании бронирования место резервируется атомарно. Если свободных мест нет, API возвращает `409 Conflict`.
+При исчерпании мест API возвращает `409 Conflict`.
 
 ## Валидация
 
-- обязательные поля при создании события: `title`, `startAt`, `endAt`, `totalSeats`
-- `title` не должен быть пустым или состоять только из пробелов
-- `endAt` должен быть позже `startAt`
-- `totalSeats` должен быть больше нуля
-- `from` не должен быть позже `to`
-- `page` должен быть не меньше `1`
-- `pageSize` должен быть в диапазоне от `1` до `100`
+- `title` — обязателен, не пустой
+- `endAt` — должен быть позже `startAt`
+- `totalSeats` — больше нуля
+- `from` — не позже `to`
+- `page` — не меньше `1`
+- `pageSize` — от `1` до `100`
 
 ## Обработка ошибок
 
-Приложение использует глобальный middleware и возвращает ошибки в формате `ProblemDetails` (`application/problem+json`).
+Ошибки возвращаются в формате `ProblemDetails` (`application/problem+json`).
 
 Коды ответа:
 
 - `400 Bad Request` — ошибки валидации
 - `404 Not Found` — ресурс не найден
-- `409 Conflict` — нет свободных мест на событие
+- `409 Conflict` — нет свободных мест
 - `500 Internal Server Error` — непредвиденная ошибка
 
-Пример ответа при исчерпании мест:
+Пример `409 Conflict`:
 
 ```json
 {
@@ -187,12 +200,11 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
   "title": "Conflict",
   "status": 409,
   "detail": "Нет свободных мест на данное событие.",
-  "instance": "/api/events/0c6bbd2b-4f64-4fb9-8d73-dcd7f6f36611/book",
-  "traceId": "00-5c5f0e5f8b6dd5f1d8e51051a335f12e-8aef5f5ec0c86219-00"
+  "instance": "/api/events/0c6bbd2b-4f64-4fb9-8d73-dcd7f6f36611/book"
 }
 ```
 
-Пример ответа при ошибке:
+Пример `404 Not Found`:
 
 ```json
 {
@@ -200,56 +212,41 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
   "title": "Resource not found",
   "status": 404,
   "detail": "Событие с id 8a1d2c54-0c43-4db6-bd7f-0e6d6f9191f8 не найдено.",
-  "instance": "/api/events/8a1d2c54-0c43-4db6-bd7f-0e6d6f9191f8",
-  "traceId": "00-5c5f0e5f8b6dd5f1d8e51051a335f12e-8aef5f5ec0c86219-00"
+  "instance": "/api/events/8a1d2c54-0c43-4db6-bd7f-0e6d6f9191f8"
 }
 ```
 
 ## Фоновая обработка бронирований
 
-После создания бронирование попадает в in-memory хранилище со статусом `Pending`.
+`BookingProcessingBackgroundService`:
 
-Фоновый сервис `BookingProcessingBackgroundService`:
+- периодически выбирает `Pending`-бронирования;
+- обрабатывает их параллельно через `Task.WhenAll`;
+- каждая бронь обрабатывается в отдельном scope через `IServiceScopeFactory`;
+- если событие удалено до обработки — бронь переводится в `Rejected`;
+- результат сохраняется в PostgreSQL через `AppDbContext`.
 
-- периодически получает список `Pending`-броней
-- запускает обработку всех броней **параллельно** через `Task.WhenAll`
-- для каждой брони выполняет искусственную задержку `Task.Delay(2s)` вне семафора — задержки перекрываются
-- запись в хранилище (изменение статуса) **сериализована** через `SemaphoreSlim(1,1)` — исключает race condition при сохранении
-- если событие было удалено до обработки — бронь переводится в `Rejected`
-- если в процессе обработки возникла непредвиденная ошибка — бронь переводится в `Rejected`, занятое место возвращается через `ReleaseSeats`
-- `OperationCanceledException` при остановке сервиса обрабатывается корректно
-
-При создании бронирования `BookingService` защищает критическую секцию через `lock`:
-- получение события
-- резервирование места через `TryReserveSeats()`
-- сохранение брони
-
-Это исключает овербукинг при конкурентных запросах.
+При создании бронирования `BookingService` защищает критическую секцию через `SemaphoreSlim` — исключает овербукинг при конкурентных запросах.
 
 ## Пример сценария: успешное бронирование
 
-1. Создать событие через `POST /api/events` с `totalSeats: 3`.
-2. Создать бронирование через `POST /api/events/{id}/book`.
-3. Получить `202 Accepted` и `Location: /api/bookings/{bookingId}`.
-4. Сразу вызвать `GET /api/bookings/{bookingId}` — увидеть статус `Pending`.
-5. Подождать несколько секунд и повторить `GET /api/bookings/{bookingId}`.
-6. Убедиться, что статус изменился на `Confirmed`, а `processedAt` заполнено.
+1. `POST /api/events` с `totalSeats: 3` — создать событие.
+2. `POST /api/events/{id}/book` — получить `202 Accepted` и `Location`.
+3. `GET /api/bookings/{bookingId}` — увидеть статус `Pending`.
+4. Подождать несколько секунд и повторить — статус изменится на `Confirmed`.
 
 ## Пример сценария: овербукинг
 
 1. Создать событие с `totalSeats: 3`.
 2. Создать три бронирования — все вернут `202 Accepted`.
-3. Попытаться создать четвёртое бронирование.
-4. Получить `409 Conflict` с телом:
-   ```json
-   {
-     "status": 409,
-     "title": "Conflict",
-     "detail": "Нет свободных мест на данное событие."
-   }
-   ```
-5. Проверить, что у события `availableSeats: 0`.
+3. Четвёртое бронирование вернёт `409 Conflict`.
+4. `availableSeats` у события будет `0`.
 
-## Хранение данных
+## Структура проекта
 
-Данные о событиях и бронированиях хранятся в памяти приложения и очищаются при перезапуске.
+```text
+EventManagementService.API.sln
+src/EventManagementService.API/
+tests/EventManagementService.API.Tests/
+docs/
+```
