@@ -20,9 +20,9 @@ public class EventsController(IEventService eventService) : ControllerBase
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<PaginatedResult<EventResponse>> GetAllEvents([FromQuery] GetEventsQuery query)
+    public async Task<ActionResult<PaginatedResult<EventResponse>>> GetAllEvents([FromQuery] GetEventsQuery query)
     {
-        return Ok(eventService.GetEvents(query).ToResponse());
+        return Ok((await eventService.GetEventsAsync(query)).ToResponse());
     }
 
     /// <summary>
@@ -33,9 +33,9 @@ public class EventsController(IEventService eventService) : ControllerBase
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<EventResponse> GetEventById(Guid id)
+    public async Task<ActionResult<EventResponse>> GetEventById(Guid id)
     {
-        return Ok(eventService.GetEventById(id).ToResponse());
+        return Ok((await eventService.GetEventByIdAsync(id)).ToResponse());
     }
 
     /// <summary>
@@ -46,10 +46,10 @@ public class EventsController(IEventService eventService) : ControllerBase
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<EventResponse> CreateEvent([FromBody] CreateEventRequest request)
+    public async Task<ActionResult<EventResponse>> CreateEvent([FromBody] CreateEventRequest request)
     {
         // Create event (service generates Id).
-        var createdEvent = eventService.CreateEvent(request.ToModel());
+        var createdEvent = await eventService.CreateEventAsync(request.ToModel());
 
         // Return 201 Created with Location header pointing to the created resource.
         var response = createdEvent.ToResponse();
@@ -66,10 +66,10 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<EventResponse> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
+    public async Task<ActionResult<EventResponse>> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
     {
         // Update event.
-        return Ok(eventService.UpdateEvent(id, request).ToResponse());
+        return Ok((await eventService.UpdateEventAsync(id, request)).ToResponse());
     }
 
     /// <summary>
@@ -80,9 +80,9 @@ public class EventsController(IEventService eventService) : ControllerBase
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult DeleteEvent(Guid id)
+    public async Task<ActionResult> DeleteEvent(Guid id)
     {
-        eventService.DeleteEvent(id);
+        await eventService.DeleteEventAsync(id);
         return NoContent();
     }
 }

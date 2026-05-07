@@ -89,7 +89,7 @@ public class BookingTests
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
 
-        var createdEvent = eventService.CreateEvent(Event.Create(
+        var createdEvent = await eventService.CreateEventAsync(Event.Create(
             "Событие с возвратом",
             new DateTime(2026, 5, 1, 10, 0, 0),
             new DateTime(2026, 5, 1, 12, 0, 0),
@@ -109,6 +109,6 @@ public class BookingTests
         // Assert
         secondBooking.Id.Should().NotBe(firstBooking.Id);
         secondBooking.Status.Should().Be(BookingStatus.Pending);
-        eventService.GetEventById(createdEvent.Id).AvailableSeats.Should().Be(0);
+        (await eventService.GetEventByIdAsync(createdEvent.Id)).AvailableSeats.Should().Be(0);
     }
 }

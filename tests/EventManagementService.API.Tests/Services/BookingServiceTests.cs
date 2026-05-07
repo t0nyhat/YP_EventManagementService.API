@@ -17,7 +17,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Конференция",
             description: "Проверка бронирования",
             startAt: new DateTime(2026, 5, 10, 10, 0, 0),
@@ -41,7 +41,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Митап",
             description: "Несколько броней",
             startAt: new DateTime(2026, 5, 11, 18, 0, 0),
@@ -64,7 +64,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Воркшоп",
             description: "Поиск по id",
             startAt: new DateTime(2026, 5, 12, 14, 0, 0),
@@ -89,7 +89,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Статусная проверка",
             description: "Подтверждение или отказ",
             startAt: new DateTime(2026, 5, 13, 12, 0, 0),
@@ -138,12 +138,12 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Удаляемое событие",
             description: "Проверка удаленного события",
             startAt: new DateTime(2026, 5, 14, 10, 0, 0),
             endAt: new DateTime(2026, 5, 14, 12, 0, 0)));
-        eventService.DeleteEvent(createdEvent.Id);
+        await eventService.DeleteEventAsync(createdEvent.Id);
 
         // Act
         var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id);
@@ -173,7 +173,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Событие с местами",
             description: null,
             startAt: new DateTime(2026, 5, 10, 10, 0, 0),
@@ -184,7 +184,7 @@ public class BookingServiceTests
         await bookingService.CreateBookingAsync(createdEvent.Id);
 
         // Assert
-        var updatedEvent = eventService.GetEventById(createdEvent.Id);
+        var updatedEvent = await eventService.GetEventByIdAsync(createdEvent.Id);
         updatedEvent.AvailableSeats.Should().Be(2);
     }
 
@@ -195,7 +195,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Однoместное событие",
             description: null,
             startAt: new DateTime(2026, 5, 11, 10, 0, 0),
@@ -221,7 +221,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Конкурентное событие",
             description: null,
             startAt: new DateTime(2026, 5, 12, 10, 0, 0),
@@ -250,7 +250,7 @@ public class BookingServiceTests
         successCount.Should().Be(totalSeats);
         exceptions.Should().HaveCount(concurrentRequests - totalSeats);
 
-        var finalEvent = eventService.GetEventById(createdEvent.Id);
+        var finalEvent = await eventService.GetEventByIdAsync(createdEvent.Id);
         finalEvent.AvailableSeats.Should().Be(0);
     }
 
@@ -263,7 +263,7 @@ public class BookingServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var eventService = new EventService(context);
         var bookingService = new BookingService(context);
-        var createdEvent = eventService.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Событие для Id-проверки",
             description: null,
             startAt: new DateTime(2026, 5, 13, 10, 0, 0),

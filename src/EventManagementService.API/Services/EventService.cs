@@ -20,7 +20,7 @@ public class EventService : IEventService
     }
 
     /// <inheritdoc />
-    public PaginatedResult<Event> GetEvents(GetEventsQuery query)
+    public async Task<PaginatedResult<Event>> GetEventsAsync(GetEventsQuery query)
     {
         ValidateQuery(query);
 
@@ -45,11 +45,11 @@ public class EventService : IEventService
 
         filteredEvents = filteredEvents.OrderBy(eventItem => eventItem.StartAt);
 
-        var totalCount = filteredEvents.Count();
-        var items = filteredEvents
+        var totalCount = await filteredEvents.CountAsync();
+        var items = await filteredEvents
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
-            .ToArray();
+            .ToArrayAsync();
 
         return new PaginatedResult<Event>
         {
@@ -61,48 +61,48 @@ public class EventService : IEventService
     }
 
     /// <inheritdoc />
-    public Event GetEventById(Guid id)
+    public async Task<Event> GetEventByIdAsync(Guid id)
     {
-        return _context.Events.FirstOrDefault(item => item.Id == id)
+        return await _context.Events.FirstOrDefaultAsync(item => item.Id == id)
             ?? throw new NotFoundException($"Событие с id {id} не найдено.");
     }
 
     /// <inheritdoc />
-    public Event CreateEvent(Event newEvent)
+    public async Task<Event> CreateEventAsync(Event newEvent)
     {
         ArgumentNullException.ThrowIfNull(newEvent);
 
-        _context.Events.Add(newEvent);
-        _context.SaveChanges();
+        await _context.Events.AddAsync(newEvent);
+        await _context.SaveChangesAsync();
         return newEvent;
     }
 
     /// <inheritdoc />
-    public Event UpdateEvent(Guid id, UpdateEventRequest request)
+    public async Task<Event> UpdateEventAsync(Guid id, UpdateEventRequest request)
     {
-        var existingEvent = _context.Events.FirstOrDefault(item => item.Id == id);
+        var existingEvent = await _context.Events.FirstOrDefaultAsync(item => item.Id == id);
         if (existingEvent is null)
         {
             throw new NotFoundException($"Событие с id {id} не найдено.");
         }
 
         existingEvent.Update(request.Title, request.StartAt!.Value, request.EndAt!.Value, request.Description);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
         return existingEvent;
     }
 
     /// <inheritdoc />
-    public void DeleteEvent(Guid id)
+    public async Task DeleteEventAsync(Guid id)
     {
-        var existingEvent = _context.Events.FirstOrDefault(item => item.Id == id);
+        var existingEvent = await _context.Events.FirstOrDefaultAsync(item => item.Id == id);
         if (existingEvent is null)
         {
             throw new NotFoundException($"Событие с id {id} не найдено.");
         }
 
         _context.Events.Remove(existingEvent);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
     }
 
     /// <inheritdoc />

@@ -15,7 +15,7 @@ public interface IEventService
     /// <param name="query">Filtering and pagination parameters.</param>
     /// <returns>A paginated result of events.</returns>
     /// <exception cref="BusinessValidationException">Thrown when pagination parameters are invalid.</exception>
-    PaginatedResult<Event> GetEvents(GetEventsQuery query);
+    Task<PaginatedResult<Event>> GetEventsAsync(GetEventsQuery query);
 
     /// <summary>
     /// Retrieves an event by its unique identifier.
@@ -23,7 +23,7 @@ public interface IEventService
     /// <param name="id">The unique identifier of the event.</param>
     /// <returns>The event if found.</returns>
     /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
-    Event GetEventById(Guid id);
+    Task<Event> GetEventByIdAsync(Guid id);
 
     /// <summary>
     /// Creates a new event.
@@ -31,7 +31,7 @@ public interface IEventService
     /// <param name="newEvent">The event to create.</param>
     /// <returns>The created event with assigned Id.</returns>
     /// <exception cref="BusinessValidationException">Thrown when event data is invalid.</exception>
-    Event CreateEvent(Event newEvent);
+    Task<Event> CreateEventAsync(Event newEvent);
 
     /// <summary>
     /// Updates an existing event.
@@ -41,14 +41,14 @@ public interface IEventService
     /// <returns>The updated event.</returns>
     /// <exception cref="BusinessValidationException">Thrown when event data is invalid.</exception>
     /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
-    Event UpdateEvent(Guid id, UpdateEventRequest request);
+    Task<Event> UpdateEventAsync(Guid id, UpdateEventRequest request);
 
     /// <summary>
     /// Deletes an event by its unique identifier.
     /// </summary>
     /// <param name="id">The unique identifier of the event to delete.</param>
     /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
-    void DeleteEvent(Guid id);
+    Task DeleteEventAsync(Guid id);
 
     /// <summary>
     /// Atomically attempts to reserve one seat for the specified event.

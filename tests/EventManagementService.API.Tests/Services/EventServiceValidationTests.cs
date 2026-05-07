@@ -10,20 +10,20 @@ namespace EventManagementService.API.Tests.Services;
 public class EventServiceValidationTests
 {
     [Fact]
-    public void GetEventById_WhenEventDoesNotExist_ThrowsNotFoundException()
+    public async Task GetEventById_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
-        var action = () => service.GetEventById(Guid.NewGuid());
+        var action = async () => await service.GetEventByIdAsync(Guid.NewGuid());
 
         // Assert
-        action.Should().Throw<NotFoundException>();
+        await action.Should().ThrowAsync<NotFoundException>();
     }
 
     [Fact]
-    public void UpdateEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
+    public async Task UpdateEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
@@ -36,23 +36,23 @@ public class EventServiceValidationTests
         };
 
         // Act
-        var action = () => service.UpdateEvent(Guid.NewGuid(), request);
+        var action = async () => await service.UpdateEventAsync(Guid.NewGuid(), request);
 
         // Assert
-        action.Should().Throw<NotFoundException>();
+        await action.Should().ThrowAsync<NotFoundException>();
     }
 
     [Fact]
-    public void DeleteEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
+    public async Task DeleteEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
-        var action = () => service.DeleteEvent(Guid.NewGuid());
+        var action = async () => await service.DeleteEventAsync(Guid.NewGuid());
 
         // Assert
-        action.Should().Throw<NotFoundException>();
+        await action.Should().ThrowAsync<NotFoundException>();
     }
 
     [Fact]
@@ -101,11 +101,11 @@ public class EventServiceValidationTests
     }
 
     [Fact]
-    public void UpdateEvent_WhenEndAtIsEarlierThanStartAt_ThrowsBusinessValidationException()
+    public async Task UpdateEvent_WhenEndAtIsEarlierThanStartAt_ThrowsBusinessValidationException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
-        var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Корректное событие",
             description: "Будет обновлено",
             startAt: new DateTime(2026, 10, 3, 9, 0, 0),
@@ -119,38 +119,38 @@ public class EventServiceValidationTests
         };
 
         // Act
-        var action = () => service.UpdateEvent(createdEvent.Id, request);
+        var action = async () => await service.UpdateEventAsync(createdEvent.Id, request);
 
         // Assert
-        action.Should().Throw<BusinessValidationException>()
+        await action.Should().ThrowAsync<BusinessValidationException>()
             .WithMessage("Дата окончания должна быть позже даты начала события.");
     }
 
     [Fact]
-    public void GetEvents_WhenPageIsLessThanOne_ThrowsBusinessValidationException()
+    public async Task GetEvents_WhenPageIsLessThanOne_ThrowsBusinessValidationException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
-        var action = () => service.GetEvents(new GetEventsQuery
+        var action = async () => await service.GetEventsAsync(new GetEventsQuery
         {
             Page = 0,
             PageSize = 10
         });
 
         // Assert
-        action.Should().Throw<BusinessValidationException>();
+        await action.Should().ThrowAsync<BusinessValidationException>();
     }
 
     [Fact]
-    public void GetEvents_WhenFromIsLaterThanTo_ThrowsBusinessValidationException()
+    public async Task GetEvents_WhenFromIsLaterThanTo_ThrowsBusinessValidationException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
-        var action = () => service.GetEvents(new GetEventsQuery
+        var action = async () => await service.GetEventsAsync(new GetEventsQuery
         {
             From = new DateTime(2026, 11, 5, 0, 0, 0),
             To = new DateTime(2026, 11, 4, 23, 59, 59),
@@ -159,24 +159,24 @@ public class EventServiceValidationTests
         });
 
         // Assert
-        action.Should().Throw<BusinessValidationException>()
+        await action.Should().ThrowAsync<BusinessValidationException>()
             .WithMessage("Дата начала диапазона не должна быть позже даты окончания.");
     }
 
     [Fact]
-    public void GetEvents_WhenPageSizeIsGreaterThanHundred_ThrowsBusinessValidationException()
+    public async Task GetEvents_WhenPageSizeIsGreaterThanHundred_ThrowsBusinessValidationException()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
 
         // Act
-        var action = () => service.GetEvents(new GetEventsQuery
+        var action = async () => await service.GetEventsAsync(new GetEventsQuery
         {
             Page = 1,
             PageSize = 101
         });
 
         // Assert
-        action.Should().Throw<BusinessValidationException>();
+        await action.Should().ThrowAsync<BusinessValidationException>();
     }
 }

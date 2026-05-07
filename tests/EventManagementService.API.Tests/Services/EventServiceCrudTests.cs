@@ -9,7 +9,7 @@ namespace EventManagementService.API.Tests.Services;
 public class EventServiceCrudTests
 {
     [Fact]
-    public void CreateEvent_WhenEventIsValid_CreatesEventWithGeneratedId()
+    public async Task CreateEvent_WhenEventIsValid_CreatesEventWithGeneratedId()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
@@ -20,7 +20,7 @@ public class EventServiceCrudTests
             endAt: new DateTime(2026, 4, 10, 18, 0, 0));
 
         // Act
-        var createdEvent = service.CreateEvent(newEvent);
+        var createdEvent = await service.CreateEventAsync(newEvent);
 
         // Assert
         createdEvent.Id.Should().NotBe(Guid.Empty);
@@ -33,23 +33,23 @@ public class EventServiceCrudTests
     }
 
     [Fact]
-    public void GetEvents_WhenEventsExist_ReturnsAllEventsOnSinglePage()
+    public async Task GetEvents_WhenEventsExist_ReturnsAllEventsOnSinglePage()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
-        var firstEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var firstEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Лекция",
             description: "Первая лекция",
             startAt: new DateTime(2026, 5, 1, 9, 0, 0),
             endAt: new DateTime(2026, 5, 1, 11, 0, 0)));
-        var secondEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var secondEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Воркшоп",
             description: "Практическое занятие",
             startAt: new DateTime(2026, 5, 2, 12, 0, 0),
             endAt: new DateTime(2026, 5, 2, 15, 0, 0)));
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Page = 1,
             PageSize = 10
@@ -63,18 +63,18 @@ public class EventServiceCrudTests
     }
 
     [Fact]
-    public void GetEventById_WhenEventExists_ReturnsRequestedEvent()
+    public async Task GetEventById_WhenEventExists_ReturnsRequestedEvent()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
-        var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Митап",
             description: "Встреча сообщества",
             startAt: new DateTime(2026, 6, 3, 18, 0, 0),
             endAt: new DateTime(2026, 6, 3, 20, 0, 0)));
 
         // Act
-        var eventItem = service.GetEventById(createdEvent.Id);
+        var eventItem = await service.GetEventByIdAsync(createdEvent.Id);
 
         // Assert
         eventItem.Id.Should().Be(createdEvent.Id);
@@ -85,11 +85,11 @@ public class EventServiceCrudTests
     }
 
     [Fact]
-    public void UpdateEvent_WhenEventExists_UpdatesEventFields()
+    public async Task UpdateEvent_WhenEventExists_UpdatesEventFields()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
-        var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Старое название",
             description: "Старое описание",
             startAt: new DateTime(2026, 7, 1, 10, 0, 0),
@@ -103,7 +103,7 @@ public class EventServiceCrudTests
         };
 
         // Act
-        var result = service.UpdateEvent(createdEvent.Id, request);
+        var result = await service.UpdateEventAsync(createdEvent.Id, request);
 
         // Assert
         result.Id.Should().Be(createdEvent.Id);
@@ -114,11 +114,11 @@ public class EventServiceCrudTests
     }
 
     [Fact]
-    public void UpdateEvent_WhenDescriptionIsNull_ClearsDescription()
+    public async Task UpdateEvent_WhenDescriptionIsNull_ClearsDescription()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
-        var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Событие с описанием",
             description: "Описание будет очищено",
             startAt: new DateTime(2026, 7, 5, 10, 0, 0),
@@ -132,7 +132,7 @@ public class EventServiceCrudTests
         };
 
         // Act
-        var result = service.UpdateEvent(createdEvent.Id, request);
+        var result = await service.UpdateEventAsync(createdEvent.Id, request);
 
         // Assert
         result.Id.Should().Be(createdEvent.Id);
@@ -143,24 +143,24 @@ public class EventServiceCrudTests
     }
 
     [Fact]
-    public void DeleteEvent_WhenEventExists_RemovesEventFromStorage()
+    public async Task DeleteEvent_WhenEventExists_RemovesEventFromStorage()
     {
         // Arrange
         var service = new EventService(TestDbContextFactory.CreateContext());
-        var createdEvent = service.CreateEvent(EventTestData.CreateEvent(
+        var createdEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Удаляемое событие",
             description: "Будет удалено",
             startAt: new DateTime(2026, 8, 12, 14, 0, 0),
             endAt: new DateTime(2026, 8, 12, 16, 0, 0)));
 
         // Act
-        service.DeleteEvent(createdEvent.Id);
-        var result = service.GetEvents(new GetEventsQuery());
+        await service.DeleteEventAsync(createdEvent.Id);
+        var result = await service.GetEventsAsync(new GetEventsQuery());
 
         // Assert
         result.Items.Should().BeEmpty();
         result.TotalCount.Should().Be(0);
-        var action = () => service.GetEventById(createdEvent.Id);
-        action.Should().Throw<NotFoundException>();
+        var action = async () => await service.GetEventByIdAsync(createdEvent.Id);
+        await action.Should().ThrowAsync<NotFoundException>();
     }
 }

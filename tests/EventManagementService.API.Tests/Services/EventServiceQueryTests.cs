@@ -8,13 +8,13 @@ namespace EventManagementService.API.Tests.Services;
 public class EventServiceQueryTests
 {
     [Fact]
-    public void GetEvents_WhenFilteredByTitle_ReturnsMatchingEventsCaseInsensitive()
+    public async Task GetEvents_WhenFilteredByTitle_ReturnsMatchingEventsCaseInsensitive()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Title = "dotnet"
         });
@@ -28,13 +28,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenTitleContainsLeadingAndTrailingWhitespace_TrimsFilterBeforeSearch()
+    public async Task GetEvents_WhenTitleContainsLeadingAndTrailingWhitespace_TrimsFilterBeforeSearch()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Title = "  dotnet  "
         });
@@ -48,13 +48,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenTitleContainsOnlyWhitespace_IgnoresTitleFilter()
+    public async Task GetEvents_WhenTitleContainsOnlyWhitespace_IgnoresTitleFilter()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Title = "   "
         });
@@ -67,13 +67,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenFilteredByDates_ReturnsOnlyEventsInRequestedRange()
+    public async Task GetEvents_WhenFilteredByDates_ReturnsOnlyEventsInRequestedRange()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             From = new DateTime(2026, 5, 2, 0, 0, 0),
             To = new DateTime(2026, 5, 4, 23, 59, 59)
@@ -93,13 +93,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenDateRangeMatchesEventBoundaries_IncludesEventOnBoundary()
+    public async Task GetEvents_WhenDateRangeMatchesEventBoundaries_IncludesEventOnBoundary()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             From = new DateTime(2026, 5, 2, 10, 0, 0),
             To = new DateTime(2026, 5, 2, 13, 0, 0)
@@ -115,13 +115,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenUsingCombinedFilters_AppliesLogicalAnd()
+    public async Task GetEvents_WhenUsingCombinedFilters_AppliesLogicalAnd()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Title = "dotnet",
             From = new DateTime(2026, 5, 4, 0, 0, 0),
@@ -136,13 +136,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenPaginationIsRequested_ReturnsRequestedPageInStartAtOrder()
+    public async Task GetEvents_WhenPaginationIsRequested_ReturnsRequestedPageInStartAtOrder()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Page = 2,
             PageSize = 2
@@ -158,13 +158,13 @@ public class EventServiceQueryTests
     }
 
     [Fact]
-    public void GetEvents_WhenNoEventsMatch_ReturnsEmptyPageWithZeroCount()
+    public async Task GetEvents_WhenNoEventsMatch_ReturnsEmptyPageWithZeroCount()
     {
         // Arrange
-        var service = CreateServiceWithSampleEvents();
+        var service = await CreateServiceWithSampleEvents();
 
         // Act
-        var result = service.GetEvents(new GetEventsQuery
+        var result = await service.GetEventsAsync(new GetEventsQuery
         {
             Title = "python"
         });
@@ -175,31 +175,31 @@ public class EventServiceQueryTests
         result.Count.Should().Be(0);
     }
 
-    private static EventService CreateServiceWithSampleEvents()
+    private static async Task<EventService> CreateServiceWithSampleEvents()
     {
         var service = new EventService(TestDbContextFactory.CreateContext());
 
-        service.CreateEvent(EventTestData.CreateEvent(
+        await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Введение в C#",
             description: "Базовая лекция",
             startAt: new DateTime(2026, 5, 1, 9, 0, 0),
             endAt: new DateTime(2026, 5, 1, 11, 0, 0)));
-        service.CreateEvent(EventTestData.CreateEvent(
+        await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "DotNet Advanced",
             description: "Продвинутый курс",
             startAt: new DateTime(2026, 5, 2, 10, 0, 0),
             endAt: new DateTime(2026, 5, 2, 13, 0, 0)));
-        service.CreateEvent(EventTestData.CreateEvent(
+        await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Архитектурный воркшоп",
             description: "Практика по архитектуре",
             startAt: new DateTime(2026, 5, 3, 14, 0, 0),
             endAt: new DateTime(2026, 5, 3, 17, 0, 0)));
-        service.CreateEvent(EventTestData.CreateEvent(
+        await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "DotNet Meetup",
             description: "Встреча сообщества",
             startAt: new DateTime(2026, 5, 4, 18, 0, 0),
             endAt: new DateTime(2026, 5, 4, 20, 0, 0)));
-        service.CreateEvent(EventTestData.CreateEvent(
+        await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "DevOps Basics",
             description: "Основы CI/CD",
             startAt: new DateTime(2026, 5, 5, 12, 0, 0),
