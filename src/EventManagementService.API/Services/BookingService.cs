@@ -8,7 +8,7 @@ namespace EventManagementService.API.Services;
 /// <summary>
 /// Handles booking creation and retrieval business logic.
 /// </summary>
-public class BookingService : IBookingService
+internal sealed class BookingService : IBookingService
 {
     // Protects the atomic check-reserve-save sequence against concurrent booking requests.
     private static readonly SemaphoreSlim BookingLock = new(1, 1);
@@ -18,7 +18,7 @@ public class BookingService : IBookingService
     /// Initializes a new instance of the <see cref="BookingService"/> class.
     /// </summary>
     /// <param name="context">Database context.</param>
-    internal BookingService(AppDbContext context)
+    public BookingService(AppDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }

@@ -10,11 +10,11 @@ namespace EventManagementService.API.Services;
 /// <summary>
 /// EF Core implementation of <see cref="IEventService"/>.
 /// </summary>
-public class EventService : IEventService
+internal sealed class EventService : IEventService
 {
     private readonly AppDbContext _context;
 
-    internal EventService(AppDbContext context)
+    public EventService(AppDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
