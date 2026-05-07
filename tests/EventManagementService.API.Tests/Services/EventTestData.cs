@@ -11,14 +11,6 @@ internal static class EventTestData
         DateTime endAt,
         int totalSeats = 10)
     {
-        return new Event
-        {
-            Title = title,
-            Description = description,
-            StartAt = startAt,
-            EndAt = endAt,
-            TotalSeats = totalSeats,
-            AvailableSeats = totalSeats
-        };
+        return Event.Create(title, startAt, endAt, totalSeats, description);
     }
 }

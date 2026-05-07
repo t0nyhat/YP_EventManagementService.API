@@ -1,5 +1,6 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
+using EventManagementService.API.Models;
 using EventManagementService.API.Services;
 using FluentAssertions;
 
@@ -25,14 +26,16 @@ public class EventServiceValidationTests
     {
         // Arrange
         var service = new EventService();
-        var updatedEvent = EventTestData.CreateEvent(
-            title: "Обновление",
-            description: "Не существует",
-            startAt: new DateTime(2026, 9, 1, 10, 0, 0),
-            endAt: new DateTime(2026, 9, 1, 12, 0, 0));
+        var request = new UpdateEventRequest
+        {
+            Title = "Обновление",
+            Description = "Не существует",
+            StartAt = new DateTime(2026, 9, 1, 10, 0, 0),
+            EndAt = new DateTime(2026, 9, 1, 12, 0, 0)
+        };
 
         // Act
-        var action = () => service.UpdateEvent(Guid.NewGuid(), updatedEvent);
+        var action = () => service.UpdateEvent(Guid.NewGuid(), request);
 
         // Assert
         action.Should().Throw<NotFoundException>();
@@ -54,16 +57,12 @@ public class EventServiceValidationTests
     [Fact]
     public void CreateEvent_WhenTitleIsWhitespace_ThrowsBusinessValidationException()
     {
-        // Arrange
-        var service = new EventService();
-        var invalidEvent = EventTestData.CreateEvent(
-            title: "   ",
-            description: "Некорректное событие",
-            startAt: new DateTime(2026, 10, 1, 10, 0, 0),
-            endAt: new DateTime(2026, 10, 1, 12, 0, 0));
-
         // Act
-        var action = () => service.CreateEvent(invalidEvent);
+        var action = () => Event.Create(
+            title: "   ",
+            startAt: new DateTime(2026, 10, 1, 10, 0, 0),
+            endAt: new DateTime(2026, 10, 1, 12, 0, 0),
+            totalSeats: 10);
 
         // Assert
         action.Should().Throw<BusinessValidationException>()
@@ -73,16 +72,12 @@ public class EventServiceValidationTests
     [Fact]
     public void CreateEvent_WhenEndAtIsEarlierThanStartAt_ThrowsBusinessValidationException()
     {
-        // Arrange
-        var service = new EventService();
-        var invalidEvent = EventTestData.CreateEvent(
-            title: "Некорректные даты",
-            description: "Ошибка дат",
-            startAt: new DateTime(2026, 10, 2, 12, 0, 0),
-            endAt: new DateTime(2026, 10, 2, 11, 0, 0));
-
         // Act
-        var action = () => service.CreateEvent(invalidEvent);
+        var action = () => Event.Create(
+            title: "Некорректные даты",
+            startAt: new DateTime(2026, 10, 2, 12, 0, 0),
+            endAt: new DateTime(2026, 10, 2, 11, 0, 0),
+            totalSeats: 10);
 
         // Assert
         action.Should().Throw<BusinessValidationException>()
@@ -92,17 +87,12 @@ public class EventServiceValidationTests
     [Fact]
     public void CreateEvent_WhenTotalSeatsIsLessThanOne_ThrowsBusinessValidationException()
     {
-        // Arrange
-        var service = new EventService();
-        var invalidEvent = EventTestData.CreateEvent(
+        // Act
+        var action = () => Event.Create(
             title: "Некорректная вместимость",
-            description: "Ошибка мест",
             startAt: new DateTime(2026, 10, 2, 12, 0, 0),
             endAt: new DateTime(2026, 10, 2, 14, 0, 0),
             totalSeats: 0);
-
-        // Act
-        var action = () => service.CreateEvent(invalidEvent);
 
         // Assert
         action.Should().Throw<BusinessValidationException>()
@@ -119,14 +109,16 @@ public class EventServiceValidationTests
             description: "Будет обновлено",
             startAt: new DateTime(2026, 10, 3, 9, 0, 0),
             endAt: new DateTime(2026, 10, 3, 11, 0, 0)));
-        var invalidEvent = EventTestData.CreateEvent(
-            title: "Обновлённое событие",
-            description: "Некорректные даты",
-            startAt: new DateTime(2026, 10, 4, 16, 0, 0),
-            endAt: new DateTime(2026, 10, 4, 15, 0, 0));
+        var request = new UpdateEventRequest
+        {
+            Title = "Обновлённое событие",
+            Description = "Некорректные даты",
+            StartAt = new DateTime(2026, 10, 4, 16, 0, 0),
+            EndAt = new DateTime(2026, 10, 4, 15, 0, 0)
+        };
 
         // Act
-        var action = () => service.UpdateEvent(createdEvent.Id, invalidEvent);
+        var action = () => service.UpdateEvent(createdEvent.Id, request);
 
         // Assert
         action.Should().Throw<BusinessValidationException>()

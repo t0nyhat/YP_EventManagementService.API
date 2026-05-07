@@ -37,11 +37,11 @@ public interface IEventService
     /// Updates an existing event.
     /// </summary>
     /// <param name="id">The unique identifier of the event to update.</param>
-    /// <param name="updatedEvent">The updated event data.</param>
+    /// <param name="request">The updated event data.</param>
     /// <returns>The updated event.</returns>
     /// <exception cref="BusinessValidationException">Thrown when event data is invalid.</exception>
     /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
-    Event UpdateEvent(Guid id, Event updatedEvent);
+    Event UpdateEvent(Guid id, UpdateEventRequest request);
 
     /// <summary>
     /// Deletes an event by its unique identifier.

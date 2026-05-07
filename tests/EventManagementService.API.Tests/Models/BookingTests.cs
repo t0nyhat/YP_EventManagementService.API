@@ -87,14 +87,11 @@ public class BookingTests
         var bookingStore = new EventManagementService.API.Stores.InMemoryBookingStore();
         var bookingService = new EventManagementService.API.Services.BookingService(bookingStore, eventService);
 
-        var createdEvent = eventService.CreateEvent(new Event
-        {
-            Title = "Событие с возвратом",
-            StartAt = new DateTime(2026, 5, 1, 10, 0, 0),
-            EndAt = new DateTime(2026, 5, 1, 12, 0, 0),
-            TotalSeats = 1,
-            AvailableSeats = 1
-        });
+        var createdEvent = eventService.CreateEvent(Event.Create(
+            "Событие с возвратом",
+            new DateTime(2026, 5, 1, 10, 0, 0),
+            new DateTime(2026, 5, 1, 12, 0, 0),
+            totalSeats: 1));
 
         var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
 

@@ -19,15 +19,7 @@ public class BookingProcessingBackgroundServiceTests
         var eventService = new Mock<IEventService>();
         eventService
             .Setup(service => service.GetEventById(eventId))
-            .Returns(new Event
-            {
-                Id = eventId,
-                Title = "Событие",
-                StartAt = new DateTime(2026, 5, 1, 10, 0, 0),
-                EndAt = new DateTime(2026, 5, 1, 12, 0, 0),
-                TotalSeats = 10,
-                AvailableSeats = 10,
-            });
+            .Returns(Event.Create("Событие", new DateTime(2026, 5, 1, 10, 0, 0), new DateTime(2026, 5, 1, 12, 0, 0), 10));
 
         var store = new InMemoryBookingStore();
         var createdAt = new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc);
@@ -137,15 +129,7 @@ public class BookingProcessingBackgroundServiceTests
         var eventService = new Mock<IEventService>();
         eventService
             .Setup(service => service.GetEventById(eventId))
-            .Returns(new Event
-            {
-                Id = eventId,
-                Title = "Параллельное событие",
-                StartAt = new DateTime(2026, 5, 4, 10, 0, 0),
-                EndAt = new DateTime(2026, 5, 4, 12, 0, 0),
-                TotalSeats = bookingCount,
-                AvailableSeats = bookingCount,
-            });
+            .Returns(Event.Create("Параллельное событие", new DateTime(2026, 5, 4, 10, 0, 0), new DateTime(2026, 5, 4, 12, 0, 0), bookingCount));
 
         var store = new InMemoryBookingStore();
         var bookings = Enumerable.Range(0, bookingCount)

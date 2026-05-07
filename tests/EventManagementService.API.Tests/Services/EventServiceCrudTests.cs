@@ -93,14 +93,16 @@ public class EventServiceCrudTests
             description: "Старое описание",
             startAt: new DateTime(2026, 7, 1, 10, 0, 0),
             endAt: new DateTime(2026, 7, 1, 12, 0, 0)));
-        var updatedEvent = EventTestData.CreateEvent(
-            title: "Новое название",
-            description: "Новое описание",
-            startAt: new DateTime(2026, 7, 2, 13, 0, 0),
-            endAt: new DateTime(2026, 7, 2, 15, 0, 0));
+        var request = new UpdateEventRequest
+        {
+            Title = "Новое название",
+            Description = "Новое описание",
+            StartAt = new DateTime(2026, 7, 2, 13, 0, 0),
+            EndAt = new DateTime(2026, 7, 2, 15, 0, 0)
+        };
 
         // Act
-        var result = service.UpdateEvent(createdEvent.Id, updatedEvent);
+        var result = service.UpdateEvent(createdEvent.Id, request);
 
         // Assert
         result.Id.Should().Be(createdEvent.Id);
@@ -120,14 +122,16 @@ public class EventServiceCrudTests
             description: "Описание будет очищено",
             startAt: new DateTime(2026, 7, 5, 10, 0, 0),
             endAt: new DateTime(2026, 7, 5, 12, 0, 0)));
-        var updatedEvent = EventTestData.CreateEvent(
-            title: "Событие без описания",
-            description: null,
-            startAt: new DateTime(2026, 7, 6, 13, 0, 0),
-            endAt: new DateTime(2026, 7, 6, 15, 0, 0));
+        var request = new UpdateEventRequest
+        {
+            Title = "Событие без описания",
+            Description = null,
+            StartAt = new DateTime(2026, 7, 6, 13, 0, 0),
+            EndAt = new DateTime(2026, 7, 6, 15, 0, 0)
+        };
 
         // Act
-        var result = service.UpdateEvent(createdEvent.Id, updatedEvent);
+        var result = service.UpdateEvent(createdEvent.Id, request);
 
         // Assert
         result.Id.Should().Be(createdEvent.Id);

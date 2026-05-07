@@ -69,7 +69,7 @@ public class EventsController(IEventService eventService) : ControllerBase
     public ActionResult<EventResponse> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
     {
         // Update event.
-        return Ok(eventService.UpdateEvent(id, request.ToModel()).ToResponse());
+        return Ok(eventService.UpdateEvent(id, request).ToResponse());
     }
 
     /// <summary>

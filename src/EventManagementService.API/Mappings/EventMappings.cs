@@ -7,26 +7,12 @@ public static class EventMappings
 {
     public static Event ToModel(this CreateEventRequest request)
     {
-        return new Event
-        {
-            Title = request.Title,
-            Description = request.Description,
-            StartAt = request.StartAt!.Value,
-            EndAt = request.EndAt!.Value,
-            TotalSeats = request.TotalSeats!.Value,
-            AvailableSeats = request.TotalSeats.Value
-        };
-    }
-
-    public static Event ToModel(this UpdateEventRequest request)
-    {
-        return new Event
-        {
-            Title = request.Title,
-            Description = request.Description,
-            StartAt = request.StartAt!.Value,
-            EndAt = request.EndAt!.Value
-        };
+        return Event.Create(
+            request.Title,
+            request.StartAt!.Value,
+            request.EndAt!.Value,
+            request.TotalSeats!.Value,
+            request.Description);
     }
 
     public static EventResponse ToResponse(this Event eventItem)

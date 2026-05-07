@@ -30,6 +30,8 @@ public class Booking
     /// </summary>
     public DateTime? ProcessedAt { get; private set; }
 
+    public Event? Event { get; private set; }
+
     private Booking()
     {
     }

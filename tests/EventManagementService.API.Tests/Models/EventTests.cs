@@ -9,14 +9,7 @@ public class EventTests
     public void TryReserveSeats_WhenEnoughSeatsExist_DecreasesAvailableSeats()
     {
         // Arrange
-        var eventItem = new Event
-        {
-            Title = "Конференция",
-            StartAt = new DateTime(2026, 4, 10, 10, 0, 0),
-            EndAt = new DateTime(2026, 4, 10, 12, 0, 0),
-            TotalSeats = 5,
-            AvailableSeats = 5
-        };
+        var eventItem = Event.Create("Конференция", new DateTime(2026, 4, 10, 10, 0, 0), new DateTime(2026, 4, 10, 12, 0, 0), 5);
 
         // Act
         var result = eventItem.TryReserveSeats(2);
@@ -30,14 +23,8 @@ public class EventTests
     public void TryReserveSeats_WhenNotEnoughSeatsExist_ReturnsFalse()
     {
         // Arrange
-        var eventItem = new Event
-        {
-            Title = "Конференция",
-            StartAt = new DateTime(2026, 4, 10, 10, 0, 0),
-            EndAt = new DateTime(2026, 4, 10, 12, 0, 0),
-            TotalSeats = 2,
-            AvailableSeats = 1
-        };
+        var eventItem = Event.Create("Конференция", new DateTime(2026, 4, 10, 10, 0, 0), new DateTime(2026, 4, 10, 12, 0, 0), 2);
+        eventItem.TryReserveSeats();
 
         // Act
         var result = eventItem.TryReserveSeats(2);
@@ -51,14 +38,8 @@ public class EventTests
     public void ReleaseSeats_WhenReleasedSeatsExceedCapacity_CapsAvailableSeatsAtTotalSeats()
     {
         // Arrange
-        var eventItem = new Event
-        {
-            Title = "Конференция",
-            StartAt = new DateTime(2026, 4, 10, 10, 0, 0),
-            EndAt = new DateTime(2026, 4, 10, 12, 0, 0),
-            TotalSeats = 5,
-            AvailableSeats = 4
-        };
+        var eventItem = Event.Create("Конференция", new DateTime(2026, 4, 10, 10, 0, 0), new DateTime(2026, 4, 10, 12, 0, 0), 5);
+        eventItem.TryReserveSeats();
 
         // Act
         eventItem.ReleaseSeats(3);
@@ -71,14 +52,7 @@ public class EventTests
     public void TryReserveSeats_WhenCountIsLessThanOne_ThrowsArgumentOutOfRangeException()
     {
         // Arrange
-        var eventItem = new Event
-        {
-            Title = "Конференция",
-            StartAt = new DateTime(2026, 4, 10, 10, 0, 0),
-            EndAt = new DateTime(2026, 4, 10, 12, 0, 0),
-            TotalSeats = 5,
-            AvailableSeats = 5
-        };
+        var eventItem = Event.Create("Конференция", new DateTime(2026, 4, 10, 10, 0, 0), new DateTime(2026, 4, 10, 12, 0, 0), 5);
 
         // Act
         var action = () => eventItem.TryReserveSeats(0);
