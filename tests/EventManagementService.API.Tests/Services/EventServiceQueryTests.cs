@@ -1,4 +1,5 @@
 using EventManagementService.API.Dtos;
+using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
@@ -177,7 +178,8 @@ public class EventServiceQueryTests
 
     private static async Task<EventService> CreateServiceWithSampleEvents()
     {
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
 
         await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Введение в C#",

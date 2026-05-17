@@ -1,4 +1,5 @@
 using EventManagementService.API.Models;
+using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
@@ -87,8 +88,8 @@ public class BookingTests
         // Arrange: event with 1 seat, one booking reserved and then rejected + seat released
         var cancellationToken = TestContext.Current.CancellationToken;
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
 
         var createdEvent = await eventService.CreateEventAsync(Event.Create(
             "Событие с возвратом",

@@ -1,6 +1,7 @@
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.DataAccess;
 using EventManagementService.API.Models;
+using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
@@ -18,8 +19,8 @@ public class BookingServiceTests
         // Arrange
         var cancellationToken = TestContext.Current.CancellationToken;
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Конференция",
             description: "Проверка бронирования",
@@ -42,8 +43,8 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Митап",
             description: "Несколько броней",
@@ -65,8 +66,8 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Воркшоп",
             description: "Поиск по id",
@@ -91,8 +92,8 @@ public class BookingServiceTests
         // Arrange
         var cancellationToken = TestContext.Current.CancellationToken;
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Статусная проверка",
             description: "Подтверждение или отказ",
@@ -126,7 +127,7 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var bookingService = new BookingService(context);
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
 
         // Act
         var action = async () => await bookingService.CreateBookingAsync(Guid.NewGuid());
@@ -140,8 +141,8 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Удаляемое событие",
             description: "Проверка удаленного события",
@@ -161,7 +162,7 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var bookingService = new BookingService(context);
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
 
         // Act
         var action = async () => await bookingService.GetBookingByIdAsync(Guid.NewGuid());
@@ -175,8 +176,8 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Событие с местами",
             description: null,
@@ -197,8 +198,8 @@ public class BookingServiceTests
     {
         // Arrange
         using var context = TestDbContextFactory.CreateContext();
-        var eventService = new EventService(context);
-        var bookingService = new BookingService(context);
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Однoместное событие",
             description: null,
@@ -227,7 +228,7 @@ public class BookingServiceTests
         using (var seedScope = serviceProvider.CreateScope())
         {
             var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var eventService = new EventService(seedContext);
+            var eventService = new EventService(new EventRepository(seedContext));
             var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: "Конкурентное событие",
                 description: null,
@@ -246,7 +247,7 @@ public class BookingServiceTests
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var bookingService = new BookingService(context);
+                var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
                 await bookingService.CreateBookingAsync(eventId);
             }
             catch (NoAvailableSeatsException ex)
@@ -264,7 +265,7 @@ public class BookingServiceTests
 
         using var assertScope = serviceProvider.CreateScope();
         var assertContext = assertScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var assertEventService = new EventService(assertContext);
+        var assertEventService = new EventService(new EventRepository(assertContext));
         var finalEvent = await assertEventService.GetEventByIdAsync(eventId);
         finalEvent.AvailableSeats.Should().Be(0);
     }
@@ -280,7 +281,7 @@ public class BookingServiceTests
         using (var seedScope = serviceProvider.CreateScope())
         {
             var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var eventService = new EventService(seedContext);
+            var eventService = new EventService(new EventRepository(seedContext));
             var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: "Событие для Id-проверки",
                 description: null,
@@ -296,7 +297,7 @@ public class BookingServiceTests
             {
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var bookingService = new BookingService(context);
+                var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
                 return await bookingService.CreateBookingAsync(eventId);
             });
 

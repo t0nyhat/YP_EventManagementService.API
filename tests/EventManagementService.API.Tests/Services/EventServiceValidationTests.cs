@@ -1,6 +1,7 @@
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
+using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
@@ -13,7 +14,8 @@ public class EventServiceValidationTests
     public async Task GetEventById_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
 
         // Act
         var action = async () => await service.GetEventByIdAsync(Guid.NewGuid());
@@ -26,7 +28,8 @@ public class EventServiceValidationTests
     public async Task UpdateEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
         var request = new UpdateEventRequest
         {
             Title = "Обновление",
@@ -46,7 +49,8 @@ public class EventServiceValidationTests
     public async Task DeleteEvent_WhenEventDoesNotExist_ThrowsNotFoundException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
 
         // Act
         var action = async () => await service.DeleteEventAsync(Guid.NewGuid());
@@ -104,7 +108,8 @@ public class EventServiceValidationTests
     public async Task UpdateEvent_WhenEndAtIsEarlierThanStartAt_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
         var createdEvent = await service.CreateEventAsync(EventTestData.CreateEvent(
             title: "Корректное событие",
             description: "Будет обновлено",
@@ -130,7 +135,8 @@ public class EventServiceValidationTests
     public async Task GetEvents_WhenPageIsLessThanOne_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
 
         // Act
         var action = async () => await service.GetEventsAsync(new GetEventsQuery
@@ -147,7 +153,8 @@ public class EventServiceValidationTests
     public async Task GetEvents_WhenFromIsLaterThanTo_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
 
         // Act
         var action = async () => await service.GetEventsAsync(new GetEventsQuery
@@ -167,7 +174,8 @@ public class EventServiceValidationTests
     public async Task GetEvents_WhenPageSizeIsGreaterThanHundred_ThrowsBusinessValidationException()
     {
         // Arrange
-        var service = new EventService(TestDbContextFactory.CreateContext());
+        var context = TestDbContextFactory.CreateContext();
+        var service = new EventService(new EventRepository(context));
 
         // Act
         var action = async () => await service.GetEventsAsync(new GetEventsQuery
