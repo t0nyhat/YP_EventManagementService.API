@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventManagementService.API", "EventManagementService.API.csproj", "{49C66B98-6779-6167-4187-17DA173AAB49}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventManagementService.API", "src\EventManagementService.API\EventManagementService.API.csproj", "{49C66B98-6779-6167-4187-17DA173AAB49}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventManagementService.API.Tests", "EventManagementService.API.Tests\EventManagementService.API.Tests.csproj", "{B766916C-4EB5-4345-861D-C2CB513C2C57}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventManagementService.API.Tests", "tests\EventManagementService.API.Tests\EventManagementService.API.Tests.csproj", "{B766916C-4EB5-4345-861D-C2CB513C2C57}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

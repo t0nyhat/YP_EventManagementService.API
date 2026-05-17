@@ -13,6 +13,7 @@ obj/
 # Test and publish output
 TestResults/
 artifacts/
+.artifacts/
 publish/
 
 # Logs
@@ -26,3 +27,5 @@ Icon
 ._*
 .Spotlight-V100
 .Trashes
+
+авторское_решение
