@@ -51,6 +51,25 @@
 - запуск PostgreSQL через Docker;
 - тестирование с `UseInMemoryDatabase`.
 
+### Sprint 6: Миграции, репозитории и интеграционные тесты PostgreSQL
+
+Папка: [docs/sprint6](sprint6/)
+
+Что покрывает:
+- переход с `EnsureCreated()` на EF Core migrations;
+- выделение репозиториев для событий и бронирований;
+- интеграционные тесты репозиториев на PostgreSQL через Testcontainers;
+- проверка схемы, FK и ограничений на уровне PostgreSQL.
+
+Ключевые материалы:
+- [README sprint6](sprint6/README.md)
+- [Введение](sprint6/01-introduction.md)
+- [Архитектура](sprint6/02-architecture.md)
+- [Репозитории и миграции](sprint6/03-repositories-and-migrations.md)
+- [Реализация](sprint6/04-implementation.md)
+- [Тестирование и запуск](sprint6/05-testing-and-run.md)
+- [Диаграммы](sprint6/06-diagrams.md)
+
 ## Рекомендуемый порядок изучения
 
 1. Sprint 1
@@ -58,6 +77,7 @@
 3. Sprint 3
 4. Sprint 4
 5. Sprint 5
+6. Sprint 6
 
 ## Как запускать проект
 
@@ -76,6 +96,8 @@ dotnet run --project src/EventManagementService.API/EventManagementService.API.c
 dotnet test
 ```
 
+Интеграционные тесты Sprint 6 используют Testcontainers и требуют установленный Docker.
+
 ## Где искать детали по sprint 5
 
 - [README sprint5](sprint5/README.md)
@@ -83,3 +105,8 @@ dotnet test
 - [Реализация](sprint5/04-implementation.md)
 - [Тестирование и запуск](sprint5/05-testing-and-run.md)
 - [Диаграммы](sprint5/06-diagrams.md)
+
+## Где искать детали по sprint 6
+
+- [README sprint6](sprint6/README.md)
+- [Тестовое задание sprint 6](sprint6/sprint6-task.md)
