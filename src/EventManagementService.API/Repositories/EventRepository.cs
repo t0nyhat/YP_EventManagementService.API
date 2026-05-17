@@ -16,7 +16,9 @@ internal sealed class EventRepository : IEventRepository
 
     public async Task<PaginatedResult<Event>> GetEventsAsync(GetEventsQuery query, CancellationToken cancellationToken = default)
     {
-        var filteredEvents = _context.Events.AsQueryable();
+        var filteredEvents = _context.Events
+            .AsNoTracking()
+            .AsQueryable();
         var normalizedTitle = query.Title?.Trim();
 
         if (!string.IsNullOrWhiteSpace(normalizedTitle))

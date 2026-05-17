@@ -7,7 +7,6 @@ namespace EventManagementService.API.BackgroundServices;
 /// <summary>
 /// Periodically processes pending bookings in the background.
 /// Pending bookings are dispatched in parallel via Task.WhenAll.
-/// Write operations (status updates) are serialized through a SemaphoreSlim.
 /// </summary>
 public class BookingProcessingBackgroundService : BackgroundService
 {
@@ -66,7 +65,7 @@ public class BookingProcessingBackgroundService : BackgroundService
     {
         _logger.LogInformation("Начата обработка бронирования с id {BookingId}.", bookingId);
 
-        // Processing delay runs outside the semaphore so all bookings delay in parallel.
+        // Processing delay runs before scoped processing so all bookings delay in parallel.
         try
         {
             await Task.Delay(ProcessingDelay, cancellationToken);
