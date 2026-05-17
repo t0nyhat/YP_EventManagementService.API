@@ -1,4 +1,5 @@
 using EventManagementService.API.DataAccess;
+using EventManagementService.API.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +23,8 @@ internal static class TestDbContextFactory
         services.AddLogging();
         services.AddDbContext<AppDbContext>(options =>
             options.UseInMemoryDatabase(effectiveDatabaseName));
+        services.AddScoped<IEventRepository, EventRepository>();
+        services.AddScoped<IBookingRepository, BookingRepository>();
 
         return services.BuildServiceProvider();
     }
