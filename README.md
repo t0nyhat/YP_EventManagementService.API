@@ -40,6 +40,17 @@ dotnet run --project src/EventManagementService.API/EventManagementService.API.c
 
 При первом запуске таблицы будут применены через EF Core migrations (`Database.Migrate()`).
 
+### 2a. Применить миграции вручную
+
+Если нужно подготовить схему без запуска API, используйте команды EF Core:
+
+```bash
+dotnet ef migrations add <MigrationName> --project src/EventManagementService.API/EventManagementService.API.csproj
+dotnet ef database update --project src/EventManagementService.API/EventManagementService.API.csproj
+```
+
+Для текущего состояния репозитория создавать новую миграцию не требуется: достаточно `dotnet ef database update`.
+
 ### 3. Запустить тесты
 
 ```bash
@@ -235,6 +246,7 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 
 - Схема данных управляется EF Core migrations.
 - Старт приложения применяет миграции автоматически.
+- Схему можно применить вручную через `dotnet ef database update`.
 - Основные ограничения схемы проверяются интеграционными тестами на реальном PostgreSQL.
 
 ## Тестирование

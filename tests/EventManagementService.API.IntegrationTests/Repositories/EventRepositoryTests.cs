@@ -129,6 +129,54 @@ public class EventRepositoryTests
     }
 
     [Fact]
+    public async Task SaveChangesAsync_WhenTrackedEventUpdated_PersistsUpdatedValues()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _fixture.ResetDatabaseAsync(cancellationToken);
+
+        var seededEvent = Event.Create(
+            title: "Исходное событие",
+            startAt: Utc(2026, 6, 4, 10, 0, 0),
+            endAt: Utc(2026, 6, 4, 12, 0, 0),
+            totalSeats: 25,
+            description: "Первичное описание");
+
+        await using (var seedContext = _fixture.CreateDbContext())
+        {
+            seedContext.Events.Add(seededEvent);
+            await seedContext.SaveChangesAsync(cancellationToken);
+        }
+
+        await using (var actContext = _fixture.CreateDbContext())
+        {
+            var repository = new EventRepository(actContext);
+            var tracked = await repository.GetByIdAsync(seededEvent.Id, cancellationToken);
+            tracked.Should().NotBeNull();
+
+            tracked!.Update(
+                title: "Обновлённое событие",
+                startAt: Utc(2026, 6, 4, 13, 0, 0),
+                endAt: Utc(2026, 6, 4, 15, 0, 0),
+                description: "Актуальное описание");
+
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+
+        await using var verifyContext = _fixture.CreateDbContext();
+        var persistedEvent = await verifyContext.Events
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == seededEvent.Id, cancellationToken);
+
+        persistedEvent.Should().NotBeNull();
+        persistedEvent!.Title.Should().Be("Обновлённое событие");
+        persistedEvent.Description.Should().Be("Актуальное описание");
+        persistedEvent.StartAt.Should().Be(Utc(2026, 6, 4, 13, 0, 0));
+        persistedEvent.EndAt.Should().Be(Utc(2026, 6, 4, 15, 0, 0));
+        persistedEvent.TotalSeats.Should().Be(25);
+        persistedEvent.AvailableSeats.Should().Be(25);
+    }
+
+    [Fact]
     public async Task GetEventsAsync_WhenFilteredByTitleWithWhitespace_ReturnsCaseInsensitiveMatches()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
