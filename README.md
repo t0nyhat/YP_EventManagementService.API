@@ -8,7 +8,8 @@ REST API для управления событиями и бронирован�
 - ASP.NET Core Web API
 - Entity Framework Core
 - PostgreSQL (`Npgsql`)
-- xUnit + InMemory EF Provider для тестов
+- xUnit v3 + FluentAssertions
+- PostgreSQL Testcontainers для интеграционных тестов
 
 ## Требования
 
@@ -37,13 +38,26 @@ dotnet build
 dotnet run --project src/EventManagementService.API/EventManagementService.API.csproj
 ```
 
-При первом запуске таблицы будут созданы автоматически через `EnsureCreated`.
+При первом запуске таблицы будут применены через EF Core migrations (`Database.Migrate()`).
+
+### 2a. Применить миграции вручную
+
+Если нужно подготовить схему без запуска API, используйте команды EF Core:
+
+```bash
+dotnet ef migrations add <MigrationName> --project src/EventManagementService.API/EventManagementService.API.csproj
+dotnet ef database update --project src/EventManagementService.API/EventManagementService.API.csproj
+```
+
+Для текущего состояния репозитория создавать новую миграцию не требуется: достаточно `dotnet ef database update`.
 
 ### 3. Запустить тесты
 
 ```bash
 dotnet test EventManagementService.API.sln
 ```
+
+Интеграционные тесты поднимают собственный PostgreSQL-контейнер через Testcontainers, поэтому отдельный локальный контейнер для них не нужен.
 
 ## Конфигурация подключения
 
@@ -224,9 +238,22 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 - обрабатывает их параллельно через `Task.WhenAll`;
 - каждая бронь обрабатывается в отдельном scope через `IServiceScopeFactory`;
 - если событие удалено до обработки — бронь переводится в `Rejected`;
-- результат сохраняется в PostgreSQL через `AppDbContext`.
+- результат сохраняется через scoped-репозитории и общий `AppDbContext`.
 
 При создании бронирования `BookingService` защищает критическую секцию через `SemaphoreSlim` — исключает овербукинг при конкурентных запросах.
+
+## База данных и миграции
+
+- Схема данных управляется EF Core migrations.
+- Старт приложения применяет миграции автоматически.
+- Схему можно применить вручную через `dotnet ef database update`.
+- Основные ограничения схемы проверяются интеграционными тестами на реальном PostgreSQL.
+
+## Тестирование
+
+- `tests/EventManagementService.API.Tests/` — unit-тесты сервисов и background service.
+- `tests/EventManagementService.API.IntegrationTests/` — интеграционные тесты репозиториев и схемы PostgreSQL через Testcontainers.
+- Для интеграционных тестов нужен только Docker, отдельный PostgreSQL вручную поднимать не требуется.
 
 ## Пример сценария: успешное бронирование
 
@@ -248,5 +275,6 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 EventManagementService.API.sln
 src/EventManagementService.API/
 tests/EventManagementService.API.Tests/
+tests/EventManagementService.API.IntegrationTests/
 docs/
 ```

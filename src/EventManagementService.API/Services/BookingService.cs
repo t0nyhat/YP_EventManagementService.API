@@ -1,7 +1,6 @@
-using EventManagementService.API.DataAccess;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
-using Microsoft.EntityFrameworkCore;
+using EventManagementService.API.Repositories;
 
 namespace EventManagementService.API.Services;
 
@@ -12,15 +11,18 @@ internal sealed class BookingService : IBookingService
 {
     // Protects the atomic check-reserve-save sequence against concurrent booking requests.
     private static readonly SemaphoreSlim BookingLock = new(1, 1);
-    private readonly AppDbContext _context;
+    private readonly IEventRepository _eventRepository;
+    private readonly IBookingRepository _bookingRepository;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BookingService"/> class.
     /// </summary>
-    /// <param name="context">Database context.</param>
-    public BookingService(AppDbContext context)
+    /// <param name="eventRepository">Event repository.</param>
+    /// <param name="bookingRepository">Booking repository.</param>
+    public BookingService(IEventRepository eventRepository, IBookingRepository bookingRepository)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
+        _bookingRepository = bookingRepository ?? throw new ArgumentNullException(nameof(bookingRepository));
     }
 
     /// <inheritdoc />
@@ -29,19 +31,17 @@ internal sealed class BookingService : IBookingService
         await BookingLock.WaitAsync();
         try
         {
-            var eventItem = await _context.Events.FirstOrDefaultAsync(item => item.Id == eventId)
+            var eventItem = await _eventRepository.GetByIdAsync(eventId)
                 ?? throw new NotFoundException($"Событие с id {eventId} не найдено.");
 
-            var reserved = eventItem.TryReserveSeats();
-
-            if (!reserved)
+            if (!eventItem.TryReserveSeats())
             {
                 throw new NoAvailableSeatsException("Нет свободных мест на данное событие.");
             }
 
             var booking = Booking.CreatePending(eventId);
-            await _context.Bookings.AddAsync(booking);
-            await _context.SaveChangesAsync();
+            await _bookingRepository.AddAsync(booking);
+            await _bookingRepository.SaveChangesAsync();
 
             return booking;
         }
@@ -54,9 +54,7 @@ internal sealed class BookingService : IBookingService
     /// <inheritdoc />
     public async Task<Booking> GetBookingByIdAsync(Guid bookingId)
     {
-        var booking = await _context.Bookings.FirstOrDefaultAsync(item => item.Id == bookingId)
+        return await _bookingRepository.GetByIdAsync(bookingId)
             ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
-
-        return booking;
     }
 }

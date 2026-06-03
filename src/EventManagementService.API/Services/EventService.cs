@@ -1,9 +1,8 @@
-using EventManagementService.API.DataAccess;
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Exceptions;
 using EventManagementService.API.Models;
+using EventManagementService.API.Repositories;
 using EventManagementService.API.Validation;
-using Microsoft.EntityFrameworkCore;
 
 namespace EventManagementService.API.Services;
 
@@ -12,58 +11,24 @@ namespace EventManagementService.API.Services;
 /// </summary>
 internal sealed class EventService : IEventService
 {
-    private readonly AppDbContext _context;
+    private readonly IEventRepository _repository;
 
-    public EventService(AppDbContext context)
+    public EventService(IEventRepository repository)
     {
-        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     /// <inheritdoc />
     public async Task<PaginatedResult<Event>> GetEventsAsync(GetEventsQuery query)
     {
         ValidateQuery(query);
-
-        var filteredEvents = _context.Events.AsQueryable();
-        var normalizedTitle = query.Title?.Trim();
-
-        if (!string.IsNullOrWhiteSpace(normalizedTitle))
-        {
-            filteredEvents = filteredEvents.Where(eventItem =>
-                eventItem.Title.ToLower().Contains(normalizedTitle.ToLower()));
-        }
-
-        if (query.From.HasValue)
-        {
-            filteredEvents = filteredEvents.Where(eventItem => eventItem.StartAt >= query.From.Value);
-        }
-
-        if (query.To.HasValue)
-        {
-            filteredEvents = filteredEvents.Where(eventItem => eventItem.EndAt <= query.To.Value);
-        }
-
-        filteredEvents = filteredEvents.OrderBy(eventItem => eventItem.StartAt);
-
-        var totalCount = await filteredEvents.CountAsync();
-        var items = await filteredEvents
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .ToArrayAsync();
-
-        return new PaginatedResult<Event>
-        {
-            Items = items,
-            Page = query.Page,
-            Count = items.Length,
-            TotalCount = totalCount
-        };
+        return await _repository.GetEventsAsync(query);
     }
 
     /// <inheritdoc />
     public async Task<Event> GetEventByIdAsync(Guid id)
     {
-        return await _context.Events.FirstOrDefaultAsync(item => item.Id == id)
+        return await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException($"Событие с id {id} не найдено.");
     }
 
@@ -72,22 +37,19 @@ internal sealed class EventService : IEventService
     {
         ArgumentNullException.ThrowIfNull(newEvent);
 
-        await _context.Events.AddAsync(newEvent);
-        await _context.SaveChangesAsync();
+        await _repository.AddAsync(newEvent);
+        await _repository.SaveChangesAsync();
         return newEvent;
     }
 
     /// <inheritdoc />
     public async Task<Event> UpdateEventAsync(Guid id, UpdateEventRequest request)
     {
-        var existingEvent = await _context.Events.FirstOrDefaultAsync(item => item.Id == id);
-        if (existingEvent is null)
-        {
-            throw new NotFoundException($"Событие с id {id} не найдено.");
-        }
+        var existingEvent = await _repository.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Событие с id {id} не найдено.");
 
         existingEvent.Update(request.Title, request.StartAt!.Value, request.EndAt!.Value, request.Description);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return existingEvent;
     }
@@ -95,14 +57,11 @@ internal sealed class EventService : IEventService
     /// <inheritdoc />
     public async Task DeleteEventAsync(Guid id)
     {
-        var existingEvent = await _context.Events.FirstOrDefaultAsync(item => item.Id == id);
-        if (existingEvent is null)
-        {
-            throw new NotFoundException($"Событие с id {id} не найдено.");
-        }
+        var existingEvent = await _repository.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Событие с id {id} не найдено.");
 
-        _context.Events.Remove(existingEvent);
-        await _context.SaveChangesAsync();
+        _repository.Remove(existingEvent);
+        await _repository.SaveChangesAsync();
     }
 
     private static void ValidateQuery(GetEventsQuery query)

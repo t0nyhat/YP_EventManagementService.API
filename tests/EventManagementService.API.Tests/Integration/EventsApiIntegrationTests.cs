@@ -7,6 +7,7 @@ using EventManagementService.API.DataAccess;
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Middleware;
 using EventManagementService.API.Models;
+using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
@@ -314,10 +315,10 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                     });
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseInMemoryDatabase(databaseName));
-                    services.AddScoped<IEventService>(serviceProvider =>
-                        new EventService(serviceProvider.GetRequiredService<AppDbContext>()));
-                    services.AddScoped<IBookingService>(serviceProvider =>
-                        new BookingService(serviceProvider.GetRequiredService<AppDbContext>()));
+                    services.AddScoped<IEventRepository, EventRepository>();
+                    services.AddScoped<IBookingRepository, BookingRepository>();
+                    services.AddScoped<IEventService, EventService>();
+                    services.AddScoped<IBookingService, BookingService>();
                     services.AddHostedService<BookingProcessingBackgroundService>();
                 });
                 webBuilder.Configure(app =>
