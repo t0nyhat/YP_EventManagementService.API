@@ -1,7 +1,7 @@
 using EventManagementService.Application.Dtos;
 using EventManagementService.API.IntegrationTests.Infrastructure;
 using EventManagementService.Domain.Models;
-using EventManagementService.API.Repositories;
+using EventManagementService.Infrastructure.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 

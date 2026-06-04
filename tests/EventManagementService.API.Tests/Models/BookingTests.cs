@@ -1,5 +1,5 @@
 using EventManagementService.Domain.Models;
-using EventManagementService.API.Repositories;
+using EventManagementService.Infrastructure.Repositories;
 using EventManagementService.API.Tests.Infrastructure;
 using EventManagementService.Application.Abstractions.Repositories;
 using EventManagementService.Application.Services;

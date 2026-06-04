@@ -1,7 +1,7 @@
 using EventManagementService.Domain.Exceptions;
-using EventManagementService.API.DataAccess;
 using EventManagementService.Domain.Models;
-using EventManagementService.API.Repositories;
+using EventManagementService.Infrastructure.DataAccess;
+using EventManagementService.Infrastructure.Repositories;
 using EventManagementService.Application.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;

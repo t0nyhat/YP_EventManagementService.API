@@ -1,12 +1,12 @@
-using EventManagementService.API.DataAccess;
+using EventManagementService.Infrastructure.DataAccess;
 using EventManagementService.Application.Abstractions.Repositories;
 using EventManagementService.Application.Dtos;
 using EventManagementService.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace EventManagementService.API.Repositories;
+namespace EventManagementService.Infrastructure.Repositories;
 
-internal sealed class EventRepository : IEventRepository
+public sealed class EventRepository : IEventRepository
 {
     private readonly AppDbContext _context;
 
