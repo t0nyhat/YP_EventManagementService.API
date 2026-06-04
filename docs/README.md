@@ -1,6 +1,6 @@
 # EventManagementService.API — Полная учебная документация
 
-Документация показывает эволюцию проекта от базового CRUD до архитектуры с PostgreSQL и EF Core.
+Документация показывает эволюцию проекта от базового CRUD до Clean Architecture с PostgreSQL и EF Core.
 
 ## Спринты
 
@@ -70,6 +70,26 @@
 - [Тестирование и запуск](sprint6/05-testing-and-run.md)
 - [Диаграммы](sprint6/06-diagrams.md)
 
+### Sprint 7: Clean Architecture и разделение на проекты
+
+Папка: [docs/sprint7](sprint7/)
+
+Что покрывает:
+- разделение production-кода на Domain, Application, Infrastructure и Presentation;
+- перенос доменной модели, use cases, портов, EF Core adapters и HTTP-слоя по отдельным сборкам;
+- строгие направления зависимостей через `ProjectReference`;
+- DI composition root в Presentation;
+- обновление тестовых references и команд миграций.
+
+Ключевые материалы:
+- [README sprint7](sprint7/README.md)
+- [Введение](sprint7/01-introduction.md)
+- [Архитектура](sprint7/02-architecture.md)
+- [Слои, порты и адаптеры](sprint7/03-layers-and-ports.md)
+- [Реализация](sprint7/04-implementation.md)
+- [Тестирование и запуск](sprint7/05-testing-and-run.md)
+- [Диаграммы](sprint7/06-diagrams.md)
+
 ## Рекомендуемый порядок изучения
 
 1. Sprint 1
@@ -78,6 +98,7 @@
 4. Sprint 4
 5. Sprint 5
 6. Sprint 6
+7. Sprint 7
 
 ## Как запускать проект
 
@@ -87,7 +108,7 @@
 docker compose up -d
 dotnet restore
 dotnet build
-dotnet run --project src/EventManagementService.API/EventManagementService.API.csproj
+dotnet run --project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 Запуск тестов:
@@ -96,7 +117,7 @@ dotnet run --project src/EventManagementService.API/EventManagementService.API.c
 dotnet test
 ```
 
-Интеграционные тесты Sprint 6 используют Testcontainers и требуют установленный Docker.
+Интеграционные тесты Sprint 6+ используют Testcontainers и требуют установленный Docker.
 
 ## Где искать детали по sprint 5
 
@@ -110,3 +131,9 @@ dotnet test
 
 - [README sprint6](sprint6/README.md)
 - [Тестовое задание sprint 6](sprint6/sprint6-task.md)
+
+## Где искать детали по sprint 7
+
+- [README sprint7](sprint7/README.md)
+- [Тестовое задание sprint 7](sprint7/sprint7-task.md)
+- [Clean Architecture](sprint7/02-architecture.md)
