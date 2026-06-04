@@ -1,4 +1,4 @@
-# EventManagementService.API
+# EventManagementService
 
 REST API для управления событиями и бронированиями на ASP.NET Core Web API.
 
@@ -18,12 +18,12 @@ REST API для управления событиями и бронирован�
 - `src/EventManagementService.Domain/` — доменные сущности, перечисления и доменные исключения. Не зависит от фреймворков и других проектов.
 - `src/EventManagementService.Application/` — use cases, application-сервисы, DTO, validation и порты репозиториев. Зависит только от Domain.
 - `src/EventManagementService.Infrastructure/` — EF Core `AppDbContext`, конфигурации моделей, migrations и реализации репозиториев. Зависит от Application и Domain.
-- `src/EventManagementService.API/` — Presentation-слой: controllers, HTTP mapping, middleware, Swagger, hosted service adapter и composition root в `Program.cs`. Зависит от Application и Infrastructure.
+- `src/EventManagementService.Presentation/` — Presentation-слой: controllers, HTTP mapping, middleware, Swagger, hosted service adapter и composition root в `Program.cs`. Зависит от Application и Infrastructure.
 
 Направление зависимостей:
 
 ```text
-Domain <- Application <- Infrastructure <- API
+Domain <- Application <- Infrastructure <- Presentation
 ```
 
 `Application` не содержит ссылок на `Infrastructure`; доступ к данным идет через интерфейсы портов из Application, а реализации подключаются в Infrastructure через DI.
@@ -52,7 +52,7 @@ docker compose ps
 ```bash
 dotnet restore
 dotnet build
-dotnet run --project src/EventManagementService.API/EventManagementService.API.csproj
+dotnet run --project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 При первом запуске таблицы будут применены через EF Core migrations (`Database.Migrate()`).
@@ -64,7 +64,7 @@ dotnet run --project src/EventManagementService.API/EventManagementService.API.c
 ```bash
 dotnet ef database update \
   --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
-  --startup-project src/EventManagementService.API/EventManagementService.API.csproj
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 Для текущего состояния репозитория создавать новую миграцию не требуется: достаточно выполнить команду `dotnet ef database update` выше с указанными проектами.
@@ -79,7 +79,7 @@ dotnet test EventManagementService.API.sln
 
 ## Конфигурация подключения
 
-По умолчанию используется строка подключения из `src/EventManagementService.API/appsettings.json`:
+По умолчанию используется строка подключения из `src/EventManagementService.Presentation/appsettings.json`:
 
 ```json
 {
@@ -274,7 +274,7 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 ```bash
 dotnet ef migrations add <MigrationName> \
   --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
-  --startup-project src/EventManagementService.API/EventManagementService.API.csproj
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 Применение миграций:
@@ -282,7 +282,7 @@ dotnet ef migrations add <MigrationName> \
 ```bash
 dotnet ef database update \
   --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
-  --startup-project src/EventManagementService.API/EventManagementService.API.csproj
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 ## Тестирование
@@ -313,7 +313,7 @@ src/
   EventManagementService.Domain/
   EventManagementService.Application/
   EventManagementService.Infrastructure/
-  EventManagementService.API/
+  EventManagementService.Presentation/
 tests/
   EventManagementService.API.Tests/
   EventManagementService.API.IntegrationTests/

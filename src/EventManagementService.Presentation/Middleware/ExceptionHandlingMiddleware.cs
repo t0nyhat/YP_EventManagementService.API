@@ -1,7 +1,7 @@
 using EventManagementService.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
-namespace EventManagementService.API.Middleware;
+namespace EventManagementService.Presentation.Middleware;
 
 /// <summary>
 /// Handles unhandled exceptions and converts them to Problem Details responses.

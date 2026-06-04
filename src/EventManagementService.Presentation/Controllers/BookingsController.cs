@@ -1,9 +1,9 @@
 using EventManagementService.Application.Dtos;
 using EventManagementService.Application.Services;
-using EventManagementService.API.Mappings;
+using EventManagementService.Presentation.Mappings;
 using Microsoft.AspNetCore.Mvc;
 
-namespace EventManagementService.API.Controllers;
+namespace EventManagementService.Presentation.Controllers;
 
 /// <summary>
 /// Controller for reading booking resources.

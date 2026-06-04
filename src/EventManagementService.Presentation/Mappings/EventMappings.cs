@@ -1,7 +1,7 @@
 using EventManagementService.Application.Dtos;
 using EventManagementService.Domain.Models;
 
-namespace EventManagementService.API.Mappings;
+namespace EventManagementService.Presentation.Mappings;
 
 public static class EventMappings
 {

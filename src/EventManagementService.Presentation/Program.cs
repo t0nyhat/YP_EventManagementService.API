@@ -1,5 +1,5 @@
-using EventManagementService.API.BackgroundServices;
-using EventManagementService.API.Middleware;
+using EventManagementService.Presentation.BackgroundServices;
+using EventManagementService.Presentation.Middleware;
 using EventManagementService.Application;
 using EventManagementService.Infrastructure;
 using EventManagementService.Infrastructure.DataAccess;

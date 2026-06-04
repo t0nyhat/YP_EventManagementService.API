@@ -1,7 +1,7 @@
 using EventManagementService.Application.Abstractions.Repositories;
 using EventManagementService.Application.Services;
 
-namespace EventManagementService.API.BackgroundServices;
+namespace EventManagementService.Presentation.BackgroundServices;
 
 /// <summary>
 /// Periodically processes pending bookings in the background.

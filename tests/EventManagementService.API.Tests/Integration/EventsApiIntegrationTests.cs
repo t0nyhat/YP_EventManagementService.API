@@ -1,11 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using EventManagementService.API.BackgroundServices;
-using EventManagementService.API.Controllers;
+using EventManagementService.Presentation.BackgroundServices;
+using EventManagementService.Presentation.Controllers;
 using EventManagementService.Application;
 using EventManagementService.Application.Dtos;
-using EventManagementService.API.Middleware;
+using EventManagementService.Presentation.Middleware;
 using EventManagementService.Domain.Models;
 using EventManagementService.Application.Abstractions.Repositories;
 using EventManagementService.Infrastructure.DataAccess;
