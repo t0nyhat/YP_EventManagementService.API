@@ -1,5 +1,6 @@
 using EventManagementService.API.DataAccess;
 using EventManagementService.API.Repositories;
+using EventManagementService.Application.Abstractions.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 

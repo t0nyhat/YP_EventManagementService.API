@@ -1,7 +1,7 @@
-using EventManagementService.API.Dtos;
+using EventManagementService.Application.Dtos;
 using EventManagementService.Domain.Exceptions;
 using EventManagementService.API.Repositories;
-using EventManagementService.API.Services;
+using EventManagementService.Application.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 

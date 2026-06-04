@@ -1,6 +1,6 @@
 using EventManagementService.Domain.Models;
 
-namespace EventManagementService.API.Repositories;
+namespace EventManagementService.Application.Abstractions.Repositories;
 
 public interface IBookingRepository
 {

@@ -1,4 +1,4 @@
-using EventManagementService.API.Dtos;
+using EventManagementService.Application.Dtos;
 using EventManagementService.Domain.Models;
 
 namespace EventManagementService.API.Mappings;

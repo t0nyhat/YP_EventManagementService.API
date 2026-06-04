@@ -1,7 +1,7 @@
-using EventManagementService.API.Dtos;
+using EventManagementService.Application.Dtos;
 using EventManagementService.Domain.Models;
 
-namespace EventManagementService.API.Repositories;
+namespace EventManagementService.Application.Abstractions.Repositories;
 
 public interface IEventRepository
 {

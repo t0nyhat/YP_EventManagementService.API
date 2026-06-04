@@ -1,7 +1,8 @@
 using EventManagementService.Domain.Models;
 using EventManagementService.API.Repositories;
-using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
+using EventManagementService.Application.Abstractions.Repositories;
+using EventManagementService.Application.Services;
 using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Models;

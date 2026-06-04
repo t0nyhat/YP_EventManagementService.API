@@ -1,6 +1,6 @@
-using EventManagementService.API.Dtos;
+using EventManagementService.Application.Dtos;
+using EventManagementService.Application.Services;
 using EventManagementService.API.Mappings;
-using EventManagementService.API.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventManagementService.API.Controllers;

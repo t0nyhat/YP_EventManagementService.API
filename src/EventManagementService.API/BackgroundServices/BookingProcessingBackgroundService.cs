@@ -1,4 +1,4 @@
-using EventManagementService.API.Repositories;
+using EventManagementService.Application.Abstractions.Repositories;
 using EventManagementService.Domain.Models;
 
 namespace EventManagementService.API.BackgroundServices;

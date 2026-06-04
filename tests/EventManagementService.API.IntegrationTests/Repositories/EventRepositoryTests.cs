@@ -1,4 +1,4 @@
-using EventManagementService.API.Dtos;
+using EventManagementService.Application.Dtos;
 using EventManagementService.API.IntegrationTests.Infrastructure;
 using EventManagementService.Domain.Models;
 using EventManagementService.API.Repositories;

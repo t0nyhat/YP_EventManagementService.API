@@ -2,7 +2,8 @@ using EventManagementService.API.BackgroundServices;
 using EventManagementService.API.DataAccess;
 using EventManagementService.API.Middleware;
 using EventManagementService.API.Repositories;
-using EventManagementService.API.Services;
+using EventManagementService.Application;
+using EventManagementService.Application.Abstractions.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,8 +51,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IEventRepository, EventRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
-builder.Services.AddScoped<IEventService, EventService>();
-builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddApplicationServices();
 builder.Services.AddHostedService<BookingProcessingBackgroundService>();
 
 var app = builder.Build();

@@ -1,5 +1,6 @@
 using EventManagementService.API.DataAccess;
-using EventManagementService.API.Dtos;
+using EventManagementService.Application.Abstractions.Repositories;
+using EventManagementService.Application.Dtos;
 using EventManagementService.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
