@@ -1,4 +1,5 @@
 using EventManagementService.API.Dtos;
+using EventManagementService.Application.Dtos;
 using EventManagementService.API.Mappings;
 using EventManagementService.Application.Services;
 using Microsoft.AspNetCore.Mvc;
