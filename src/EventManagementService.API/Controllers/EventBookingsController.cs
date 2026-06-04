@@ -1,4 +1,3 @@
-using EventManagementService.API.Dtos;
 using EventManagementService.Application.Dtos;
 using EventManagementService.API.Mappings;
 using EventManagementService.Application.Services;
@@ -16,15 +15,15 @@ public class EventBookingsController(IBookingService bookingService) : Controlle
     /// <summary>
     /// Creates a booking for the specified event.
     /// </summary>
-    /// <param name="request">Booking creation request bound from route values.</param>
+    /// <param name="id">Event identifier.</param>
     /// <returns>Accepted booking resource with a Location header.</returns>
     [HttpPost("{id:guid}/book")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<BookingResponse>> CreateBooking([FromRoute] CreateBookingRequest request)
+    public async Task<ActionResult<BookingResponse>> CreateBooking(Guid id)
     {
-        var booking = await bookingService.CreateBookingAsync(request.EventId);
+        var booking = await bookingService.CreateBookingAsync(id);
         return AcceptedAtRoute(BookingsController.GetBookingByIdRouteName, new { id = booking.Id }, booking.ToResponse());
     }
 }
