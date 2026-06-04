@@ -1,11 +1,12 @@
 using EventManagementService.Application.Abstractions.Repositories;
-using EventManagementService.Domain.Models;
+using EventManagementService.Application.Services;
 
 namespace EventManagementService.API.BackgroundServices;
 
 /// <summary>
 /// Periodically processes pending bookings in the background.
 /// Pending bookings are dispatched in parallel via Task.WhenAll.
+/// The actual business logic is delegated to <see cref="IBookingProcessingService"/>.
 /// </summary>
 public class BookingProcessingBackgroundService : BackgroundService
 {
@@ -73,61 +74,9 @@ public class BookingProcessingBackgroundService : BackgroundService
         {
             throw;
         }
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-            var eventRepository = scope.ServiceProvider.GetRequiredService<IEventRepository>();
 
-            var booking = await bookingRepository.GetByIdAsync(bookingId, cancellationToken);
-            if (booking is null || booking.Status != BookingStatus.Pending)
-            {
-                _logger.LogInformation(
-                    "Бронирование с id {BookingId} пропущено: оно уже не находится в статусе ожидания.",
-                    bookingId);
-                return;
-            }
-
-            var eventItem = await eventRepository.GetByIdAsync(booking.EventId, cancellationToken);
-            if (eventItem is null)
-            {
-                booking.Reject(DateTime.UtcNow);
-                await bookingRepository.SaveChangesAsync(cancellationToken);
-                _logger.LogWarning(
-                    "Событие для бронирования с id {BookingId} удалено. Бронирование отклонено.",
-                    bookingId);
-                return;
-            }
-
-            booking.Confirm(DateTime.UtcNow);
-            await bookingRepository.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Бронирование с id {BookingId} переведено в статус Confirmed.", bookingId);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(
-                exception,
-                "Ошибка при фоновой обработке бронирования с id {BookingId}.",
-                bookingId);
-
-            using var scope = _scopeFactory.CreateScope();
-            var bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-            var eventRepository = scope.ServiceProvider.GetRequiredService<IEventRepository>();
-            var booking = await bookingRepository.GetByIdAsync(bookingId, cancellationToken);
-
-            if (booking is not null && booking.Status == BookingStatus.Pending)
-            {
-                booking.Reject(DateTime.UtcNow);
-
-                var eventItem = await eventRepository.GetByIdAsync(booking.EventId, cancellationToken);
-                eventItem?.ReleaseSeats();
-
-                await bookingRepository.SaveChangesAsync(cancellationToken);
-            }
-        }
+        using var scope = _scopeFactory.CreateScope();
+        var processingService = scope.ServiceProvider.GetRequiredService<IBookingProcessingService>();
+        await processingService.ProcessPendingBookingAsync(bookingId, cancellationToken);
     }
 }
