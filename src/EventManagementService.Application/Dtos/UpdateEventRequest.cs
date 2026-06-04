@@ -30,6 +30,5 @@ public class UpdateEventRequest
     /// Must be after StartAt.
     /// </summary>
     [Required(ErrorMessage = "Дата окончания события обязательна")]
-    [Compare("StartAt", ErrorMessage = "Дата окончания должна быть позже даты начала.")]
     public DateTime? EndAt { get; set; }
 }

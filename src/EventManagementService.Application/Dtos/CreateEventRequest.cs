@@ -30,13 +30,12 @@ public class CreateEventRequest
     /// Must be after StartAt.
     /// </summary>
     [Required(ErrorMessage = "Дата окончания события обязательна!")]
-    [Compare("StartAt", ErrorMessage = "Дата окончания должна быть позже даты начала.")]
     public DateTime? EndAt { get; set; }
 
     /// <summary>
     /// Total number of seats available for the event (required).
     /// </summary>
     [Required(ErrorMessage = "Количество мест обязательно!")]
-    [Range(1, int.MaxValue, ErrorMessage = "Количество мест должно быть положительным числом.")]
+    [Range(1, int.MaxValue, ErrorMessage = "Количество мест должно быть больше нуля.")]
     public int? TotalSeats { get; set; }
 }
