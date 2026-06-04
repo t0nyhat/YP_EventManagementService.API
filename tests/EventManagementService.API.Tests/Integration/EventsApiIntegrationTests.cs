@@ -3,11 +3,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using EventManagementService.API.BackgroundServices;
 using EventManagementService.API.Controllers;
+using EventManagementService.Application;
 using EventManagementService.Application.Dtos;
 using EventManagementService.API.Middleware;
 using EventManagementService.Domain.Models;
 using EventManagementService.Application.Abstractions.Repositories;
-using EventManagementService.Application.Services;
 using EventManagementService.Infrastructure.DataAccess;
 using EventManagementService.Infrastructure.Repositories;
 using FluentAssertions;
@@ -318,8 +318,7 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                         options.UseInMemoryDatabase(databaseName));
                     services.AddScoped<IEventRepository, EventRepository>();
                     services.AddScoped<IBookingRepository, BookingRepository>();
-                    services.AddScoped<IEventService, EventService>();
-                    services.AddScoped<IBookingService, BookingService>();
+                    services.AddApplicationServices();
                     services.AddHostedService<BookingProcessingBackgroundService>();
                 });
                 webBuilder.Configure(app =>

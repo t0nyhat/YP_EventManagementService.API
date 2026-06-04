@@ -23,7 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\EventManagementService.API\EventManagementService.API.csproj" />
+    <ProjectReference Include="..\..\src\EventManagementService.Domain\EventManagementService.Domain.csproj" />
+    <ProjectReference Include="..\..\src\EventManagementService.Application\EventManagementService.Application.csproj" />
+    <ProjectReference Include="..\..\src\EventManagementService.Infrastructure\EventManagementService.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
