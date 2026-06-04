@@ -1,5 +1,5 @@
 using EventManagementService.API.Dtos;
-using EventManagementService.API.Exceptions;
+using EventManagementService.Domain.Exceptions;
 using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;

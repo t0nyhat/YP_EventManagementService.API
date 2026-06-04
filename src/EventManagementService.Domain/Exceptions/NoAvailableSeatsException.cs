@@ -1,4 +1,4 @@
-namespace EventManagementService.API.Exceptions;
+namespace EventManagementService.Domain.Exceptions;
 
 /// <summary>
 /// Thrown when a booking cannot be created because no seats are available for the event.

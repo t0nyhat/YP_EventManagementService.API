@@ -6,7 +6,7 @@ using EventManagementService.API.Controllers;
 using EventManagementService.API.DataAccess;
 using EventManagementService.API.Dtos;
 using EventManagementService.API.Middleware;
-using EventManagementService.API.Models;
+using EventManagementService.Domain.Models;
 using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using Microsoft.EntityFrameworkCore;

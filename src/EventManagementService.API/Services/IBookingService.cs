@@ -1,4 +1,4 @@
-using EventManagementService.API.Models;
+using EventManagementService.Domain.Models;
 
 namespace EventManagementService.API.Services;
 

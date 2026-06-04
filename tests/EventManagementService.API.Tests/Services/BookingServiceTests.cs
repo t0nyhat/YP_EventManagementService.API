@@ -1,6 +1,6 @@
-using EventManagementService.API.Exceptions;
+using EventManagementService.Domain.Exceptions;
 using EventManagementService.API.DataAccess;
-using EventManagementService.API.Models;
+using EventManagementService.Domain.Models;
 using EventManagementService.API.Repositories;
 using EventManagementService.API.Services;
 using EventManagementService.API.Tests.Infrastructure;
