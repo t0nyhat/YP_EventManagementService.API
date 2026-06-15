@@ -1,4 +1,4 @@
-using EventManagementService.API.Models;
+using EventManagementService.Domain.Models;
 using FluentAssertions;
 
 namespace EventManagementService.API.Tests.Models;

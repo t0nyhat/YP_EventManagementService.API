@@ -1,6 +1,6 @@
-using EventManagementService.API.Dtos;
-using EventManagementService.API.Repositories;
-using EventManagementService.API.Services;
+using EventManagementService.Application.Dtos;
+using EventManagementService.Infrastructure.Repositories;
+using EventManagementService.Application.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 

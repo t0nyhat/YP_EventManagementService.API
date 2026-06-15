@@ -1,4 +1,4 @@
-# EventManagementService.API
+# EventManagementService
 
 REST API для управления событиями и бронированиями на ASP.NET Core Web API.
 
@@ -10,6 +10,23 @@ REST API для управления событиями и бронирован�
 - PostgreSQL (`Npgsql`)
 - xUnit v3 + FluentAssertions
 - PostgreSQL Testcontainers для интеграционных тестов
+
+## Архитектура
+
+Решение разделено на четыре production-проекта по принципам Clean Architecture:
+
+- `src/EventManagementService.Domain/` — доменные сущности, перечисления и доменные исключения. Не зависит от фреймворков и других проектов.
+- `src/EventManagementService.Application/` — use cases, application-сервисы, DTO, validation и порты репозиториев. Зависит только от Domain.
+- `src/EventManagementService.Infrastructure/` — EF Core `AppDbContext`, конфигурации моделей, migrations и реализации репозиториев. Зависит от Application и Domain.
+- `src/EventManagementService.Presentation/` — Presentation-слой: controllers, HTTP mapping, middleware, Swagger, hosted service adapter и composition root в `Program.cs`. Зависит от Application и Infrastructure.
+
+Направление зависимостей:
+
+```text
+Domain <- Application <- Infrastructure <- Presentation
+```
+
+`Application` не содержит ссылок на `Infrastructure`; доступ к данным идет через интерфейсы портов из Application, а реализации подключаются в Infrastructure через DI.
 
 ## Требования
 
@@ -35,7 +52,7 @@ docker compose ps
 ```bash
 dotnet restore
 dotnet build
-dotnet run --project src/EventManagementService.API/EventManagementService.API.csproj
+dotnet run --project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 При первом запуске таблицы будут применены через EF Core migrations (`Database.Migrate()`).
@@ -45,11 +62,12 @@ dotnet run --project src/EventManagementService.API/EventManagementService.API.c
 Если нужно подготовить схему без запуска API, используйте команды EF Core:
 
 ```bash
-dotnet ef migrations add <MigrationName> --project src/EventManagementService.API/EventManagementService.API.csproj
-dotnet ef database update --project src/EventManagementService.API/EventManagementService.API.csproj
+dotnet ef database update \
+  --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
-Для текущего состояния репозитория создавать новую миграцию не требуется: достаточно `dotnet ef database update`.
+Для текущего состояния репозитория создавать новую миграцию не требуется: достаточно выполнить команду `dotnet ef database update` выше с указанными проектами.
 
 ### 3. Запустить тесты
 
@@ -61,7 +79,7 @@ dotnet test EventManagementService.API.sln
 
 ## Конфигурация подключения
 
-По умолчанию используется строка подключения из `src/EventManagementService.API/appsettings.json`:
+По умолчанию используется строка подключения из `src/EventManagementService.Presentation/appsettings.json`:
 
 ```json
 {
@@ -237,22 +255,49 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 - периодически выбирает `Pending`-бронирования;
 - обрабатывает их параллельно через `Task.WhenAll`;
 - каждая бронь обрабатывается в отдельном scope через `IServiceScopeFactory`;
+- делегирует бизнес-решения в `IBookingProcessingService` из Application;
 - если событие удалено до обработки — бронь переводится в `Rejected`;
-- результат сохраняется через scoped-репозитории и общий `AppDbContext`.
+- результат сохраняется через scoped-репозитории из Infrastructure.
 
 При создании бронирования `BookingService` защищает критическую секцию через `SemaphoreSlim` — исключает овербукинг при конкурентных запросах.
 
 ## База данных и миграции
 
 - Схема данных управляется EF Core migrations.
+- `AppDbContext`, configurations и migrations находятся в `EventManagementService.Infrastructure`.
 - Старт приложения применяет миграции автоматически.
-- Схему можно применить вручную через `dotnet ef database update`.
+- Схему можно применить вручную через `dotnet ef database update` с Infrastructure как `--project` и API как `--startup-project`.
 - Основные ограничения схемы проверяются интеграционными тестами на реальном PostgreSQL.
+
+Создание новой миграции:
+
+```bash
+dotnet ef migrations add <MigrationName> \
+  --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
+```
+
+При необходимости можно сразу указать конкретный `DbContext`:
+
+```bash
+dotnet ef migrations add <MigrationName> \
+  --context AppDbContext \
+  --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
+```
+
+Применение миграций:
+
+```bash
+dotnet ef database update \
+  --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
+```
 
 ## Тестирование
 
-- `tests/EventManagementService.API.Tests/` — unit-тесты сервисов и background service.
-- `tests/EventManagementService.API.IntegrationTests/` — интеграционные тесты репозиториев и схемы PostgreSQL через Testcontainers.
+- `tests/EventManagementService.API.Tests/` — unit-тесты Domain/Application, тесты hosted service adapter и API pipeline на TestServer.
+- `tests/EventManagementService.API.IntegrationTests/` — интеграционные тесты Infrastructure-репозиториев и схемы PostgreSQL через Testcontainers.
 - Для интеграционных тестов нужен только Docker, отдельный PostgreSQL вручную поднимать не требуется.
 
 ## Пример сценария: успешное бронирование
@@ -273,8 +318,13 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 
 ```text
 EventManagementService.API.sln
-src/EventManagementService.API/
-tests/EventManagementService.API.Tests/
-tests/EventManagementService.API.IntegrationTests/
+src/
+  EventManagementService.Domain/
+  EventManagementService.Application/
+  EventManagementService.Infrastructure/
+  EventManagementService.Presentation/
+tests/
+  EventManagementService.API.Tests/
+  EventManagementService.API.IntegrationTests/
 docs/
 ```

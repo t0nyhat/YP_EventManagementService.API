@@ -1,21 +1,22 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using EventManagementService.API.BackgroundServices;
-using EventManagementService.API.Controllers;
-using EventManagementService.API.DataAccess;
-using EventManagementService.API.Dtos;
-using EventManagementService.API.Middleware;
-using EventManagementService.API.Models;
-using EventManagementService.API.Repositories;
-using EventManagementService.API.Services;
-using Microsoft.EntityFrameworkCore;
+using EventManagementService.Presentation.BackgroundServices;
+using EventManagementService.Presentation.Controllers;
+using EventManagementService.Application;
+using EventManagementService.Application.Dtos;
+using EventManagementService.Presentation.Middleware;
+using EventManagementService.Domain.Models;
+using EventManagementService.Application.Abstractions.Repositories;
+using EventManagementService.Infrastructure.DataAccess;
+using EventManagementService.Infrastructure.Repositories;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -317,8 +318,7 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                         options.UseInMemoryDatabase(databaseName));
                     services.AddScoped<IEventRepository, EventRepository>();
                     services.AddScoped<IBookingRepository, BookingRepository>();
-                    services.AddScoped<IEventService, EventService>();
-                    services.AddScoped<IBookingService, BookingService>();
+                    services.AddApplicationServices();
                     services.AddHostedService<BookingProcessingBackgroundService>();
                 });
                 webBuilder.Configure(app =>

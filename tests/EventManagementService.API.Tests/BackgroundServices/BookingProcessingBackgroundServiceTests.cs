@@ -1,6 +1,6 @@
-using EventManagementService.API.BackgroundServices;
-using EventManagementService.API.DataAccess;
-using EventManagementService.API.Models;
+using EventManagementService.Presentation.BackgroundServices;
+using EventManagementService.Domain.Models;
+using EventManagementService.Infrastructure.DataAccess;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;

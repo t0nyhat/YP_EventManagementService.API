@@ -1,6 +1,6 @@
-using EventManagementService.API.DataAccess;
 using EventManagementService.API.IntegrationTests.Infrastructure;
-using EventManagementService.API.Models;
+using EventManagementService.Domain.Models;
+using EventManagementService.Infrastructure.DataAccess;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;

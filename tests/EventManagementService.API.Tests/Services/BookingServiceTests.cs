@@ -1,8 +1,8 @@
-using EventManagementService.API.Exceptions;
-using EventManagementService.API.DataAccess;
-using EventManagementService.API.Models;
-using EventManagementService.API.Repositories;
-using EventManagementService.API.Services;
+using EventManagementService.Domain.Exceptions;
+using EventManagementService.Domain.Models;
+using EventManagementService.Infrastructure.DataAccess;
+using EventManagementService.Infrastructure.Repositories;
+using EventManagementService.Application.Services;
 using EventManagementService.API.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
