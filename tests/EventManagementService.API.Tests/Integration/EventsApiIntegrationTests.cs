@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json;
 using EventManagementService.Presentation.BackgroundServices;
 using EventManagementService.Presentation.Controllers;
@@ -11,19 +13,25 @@ using EventManagementService.Application.Abstractions.Repositories;
 using EventManagementService.Infrastructure.DataAccess;
 using EventManagementService.Infrastructure.Repositories;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text.Encodings.Web;
 
 namespace EventManagementService.API.Tests.Integration;
 
 public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
 {
+    private static readonly Guid AdminUserId = Guid.Parse("00000000-0000-0000-0000-000000000101");
+    private static readonly Guid UserUserId = Guid.Parse("00000000-0000-0000-0000-000000000102");
     private readonly HttpClient _client;
 
     public EventsApiIntegrationTests(ApiTestServerFixture fixture)
@@ -118,7 +126,7 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
             TotalSeats = 3
         };
 
-        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest, cancellationToken);
+        using var createEventResponse = await PostAsJsonAsync("/api/events", createEventRequest, AdminUserId, UserRole.Admin, cancellationToken);
         createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
@@ -127,7 +135,7 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         createdEvent.AvailableSeats.Should().Be(3);
 
         // Act
-        using var createBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null, cancellationToken);
+        using var createBookingResponse = await PostAsync($"/api/events/{createdEvent!.Id}/book", UserUserId, UserRole.User, cancellationToken);
 
         // Assert
         createBookingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
@@ -140,12 +148,12 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         createdBooking.ProcessedAt.Should().BeNull();
         createBookingResponse.Headers.Location!.AbsolutePath.Should().Be($"/api/bookings/{createdBooking.Id}");
 
-        var pendingBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{createdBooking.Id}", cancellationToken);
+        var pendingBooking = await GetFromJsonAsync<BookingResponse>($"/api/bookings/{createdBooking.Id}", UserUserId, UserRole.User, cancellationToken);
         pendingBooking.Should().NotBeNull();
         pendingBooking!.Status.Should().Be(BookingStatus.Pending);
         pendingBooking.ProcessedAt.Should().BeNull();
 
-        var confirmedBooking = await WaitForBookingStatusAsync(createdBooking.Id, BookingStatus.Confirmed, TimeSpan.FromSeconds(6));
+        var confirmedBooking = await WaitForBookingStatusAsync(createdBooking.Id, BookingStatus.Confirmed, UserUserId, UserRole.User, TimeSpan.FromSeconds(6));
         confirmedBooking.Status.Should().Be(BookingStatus.Confirmed);
         confirmedBooking.ProcessedAt.Should().NotBeNull();
         confirmedBooking.ProcessedAt!.Value.Should().BeAfter(createdBooking.CreatedAt);
@@ -167,7 +175,7 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         };
 
         // Act
-        using var response = await _client.PostAsJsonAsync("/api/events", request, cancellationToken);
+        using var response = await PostAsJsonAsync("/api/events", request, AdminUserId, UserRole.Admin, cancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -194,7 +202,7 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         };
 
         // Act
-        using var response = await _client.PostAsJsonAsync("/api/events", request, cancellationToken);
+        using var response = await PostAsJsonAsync("/api/events", request, AdminUserId, UserRole.Admin, cancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -226,17 +234,17 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
             TotalSeats = 1
         };
 
-        using var createEventResponse = await _client.PostAsJsonAsync("/api/events", createEventRequest, cancellationToken);
+        using var createEventResponse = await PostAsJsonAsync("/api/events", createEventRequest, AdminUserId, UserRole.Admin, cancellationToken);
         createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
         createdEvent.Should().NotBeNull();
 
-        using var firstBookingResponse = await _client.PostAsync($"/api/events/{createdEvent!.Id}/book", content: null, cancellationToken);
+        using var firstBookingResponse = await PostAsync($"/api/events/{createdEvent!.Id}/book", UserUserId, UserRole.User, cancellationToken);
         firstBookingResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
         // Act
-        using var secondBookingResponse = await _client.PostAsync($"/api/events/{createdEvent.Id}/book", content: null, cancellationToken);
+        using var secondBookingResponse = await PostAsync($"/api/events/{createdEvent.Id}/book", Guid.NewGuid(), UserRole.User, cancellationToken);
 
         // Assert
         secondBookingResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -251,7 +259,43 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         root.GetProperty("instance").GetString().Should().Be($"/api/events/{createdEvent.Id}/book");
     }
 
-    private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, TimeSpan timeout)
+    [Fact]
+    public async Task CreateEvent_WhenUnauthenticated_ReturnsUnauthorized()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var request = new CreateEventRequest
+        {
+            Title = "Unauthorized event",
+            StartAt = DateTime.UtcNow.AddDays(1),
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(1),
+            TotalSeats = 10
+        };
+
+        using var response = await _client.PostAsJsonAsync("/api/events", request, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateEvent_WhenNonAdminUser_ReturnsForbidden()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var request = new CreateEventRequest
+        {
+            Title = "Forbidden event",
+            StartAt = DateTime.UtcNow.AddDays(1),
+            EndAt = DateTime.UtcNow.AddDays(1).AddHours(1),
+            TotalSeats = 10
+        };
+
+        using var response = await PostAsJsonAsync("/api/events", request, UserUserId, UserRole.User, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, Guid userId, UserRole role, TimeSpan timeout)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var deadline = DateTime.UtcNow.Add(timeout);
@@ -259,7 +303,7 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
 
         while (DateTime.UtcNow <= deadline)
         {
-            latestBooking = await _client.GetFromJsonAsync<BookingResponse>($"/api/bookings/{bookingId}", cancellationToken);
+            latestBooking = await GetFromJsonAsync<BookingResponse>($"/api/bookings/{bookingId}", userId, role, cancellationToken);
 
             if (latestBooking?.Status == expectedStatus)
             {
@@ -271,6 +315,40 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
 
         throw new TimeoutException(
             $"Бронирование с id {bookingId} не достигло статуса {expectedStatus} за {timeout.TotalSeconds} секунд.");
+    }
+
+    private async Task<T?> GetFromJsonAsync<T>(string url, Guid userId, UserRole role, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthenticatedRequest(HttpMethod.Get, url, userId, role);
+        using var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>(cancellationToken);
+    }
+
+    private async Task<HttpResponseMessage> PostAsJsonAsync<T>(
+        string url,
+        T payload,
+        Guid userId,
+        UserRole role,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthenticatedRequest(HttpMethod.Post, url, userId, role);
+        request.Content = JsonContent.Create(payload);
+        return await _client.SendAsync(request, cancellationToken);
+    }
+
+    private async Task<HttpResponseMessage> PostAsync(string url, Guid userId, UserRole role, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthenticatedRequest(HttpMethod.Post, url, userId, role);
+        return await _client.SendAsync(request, cancellationToken);
+    }
+
+    private static HttpRequestMessage CreateAuthenticatedRequest(HttpMethod method, string url, Guid userId, UserRole role)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Add(TestAuthHandler.UserIdHeader, userId.ToString());
+        request.Headers.Add(TestAuthHandler.RoleHeader, role.ToString());
+        return request;
     }
 }
 
@@ -291,6 +369,9 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                 {
                     services.AddLogging();
                     services.AddProblemDetails();
+                    services.AddAuthentication(TestAuthHandler.SchemeName)
+                        .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
+                    services.AddAuthorization();
                     services.AddControllers()
                         .AddApplicationPart(typeof(EventsController).Assembly);
                     services.Configure<ApiBehaviorOptions>(options =>
@@ -325,6 +406,8 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
                 {
                     app.UseRouting();
                     app.UseMiddleware<ExceptionHandlingMiddleware>();
+                    app.UseAuthentication();
+                    app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapControllers());
                 });
             })
@@ -339,5 +422,46 @@ public sealed class ApiTestServerFixture : IAsyncLifetime
         Client.Dispose();
         await _host.StopAsync();
         _host.Dispose();
+    }
+}
+
+internal sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    public const string SchemeName = "Test";
+    public const string UserIdHeader = "X-Test-UserId";
+    public const string RoleHeader = "X-Test-Role";
+
+    public TestAuthHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
+        : base(options, logger, encoder)
+    {
+    }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        if (!Request.Headers.TryGetValue(UserIdHeader, out var userIdHeader)
+            || !Guid.TryParse(userIdHeader, out var userId))
+        {
+            return Task.FromResult(AuthenticateResult.Fail("Missing or invalid user id header."));
+        }
+
+        var role = Request.Headers.TryGetValue(RoleHeader, out var roleHeader)
+            ? roleHeader.ToString()
+            : UserRole.User.ToString();
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Name, $"test-{userId:N}"),
+            new Claim(ClaimTypes.Role, role)
+        };
+
+        var identity = new ClaimsIdentity(claims, SchemeName);
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new AuthenticationTicket(principal, SchemeName);
+
+        return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }

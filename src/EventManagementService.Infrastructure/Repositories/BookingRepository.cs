@@ -19,6 +19,14 @@ public sealed class BookingRepository : IBookingRepository
         return _context.Bookings.FirstOrDefaultAsync(item => item.Id == bookingId, cancellationToken);
     }
 
+    public Task<int> CountActiveByUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return _context.Bookings.CountAsync(
+            booking => booking.UserId == userId
+                && (booking.Status == BookingStatus.Pending || booking.Status == BookingStatus.Confirmed),
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<Guid>> GetPendingIdsAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Bookings

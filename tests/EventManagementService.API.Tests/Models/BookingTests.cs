@@ -94,11 +94,11 @@ public class BookingTests
 
         var createdEvent = await eventService.CreateEventAsync(Event.Create(
             "Событие с возвратом",
-            new DateTime(2026, 5, 1, 10, 0, 0),
-            new DateTime(2026, 5, 1, 12, 0, 0),
+            DateTime.UtcNow.AddDays(2),
+            DateTime.UtcNow.AddDays(2).AddHours(2),
             totalSeats: 1));
 
-        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Simulate rejection + seat release (what background service does on error/delete path)
         var storedBooking = await context.Bookings.FindAsync([firstBooking.Id], cancellationToken);
@@ -108,7 +108,7 @@ public class BookingTests
         await context.SaveChangesAsync(cancellationToken);
 
         // Act: now there should be a free seat again
-        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         secondBooking.Id.Should().NotBe(firstBooking.Id);

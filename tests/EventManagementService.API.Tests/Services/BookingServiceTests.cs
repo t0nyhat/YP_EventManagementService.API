@@ -24,11 +24,11 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Конференция",
             description: "Проверка бронирования",
-            startAt: new DateTime(2026, 5, 10, 10, 0, 0),
-            endAt: new DateTime(2026, 5, 10, 12, 0, 0)));
+            startAt: DateTime.UtcNow.AddDays(2),
+            endAt: DateTime.UtcNow.AddDays(2).AddHours(2)));
 
         // Act
-        var booking = await bookingService.CreateBookingAsync(createdEvent.Id);
+        var booking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         booking.Id.Should().NotBe(Guid.Empty);
@@ -48,12 +48,12 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Митап",
             description: "Несколько броней",
-            startAt: new DateTime(2026, 5, 11, 18, 0, 0),
-            endAt: new DateTime(2026, 5, 11, 20, 0, 0)));
+            startAt: DateTime.UtcNow.AddDays(3),
+            endAt: DateTime.UtcNow.AddDays(3).AddHours(2)));
 
         // Act
-        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
-        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
+        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         firstBooking.Id.Should().NotBe(secondBooking.Id);
@@ -71,12 +71,12 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Воркшоп",
             description: "Поиск по id",
-            startAt: new DateTime(2026, 5, 12, 14, 0, 0),
-            endAt: new DateTime(2026, 5, 12, 16, 0, 0)));
-        var createdBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+            startAt: DateTime.UtcNow.AddDays(4),
+            endAt: DateTime.UtcNow.AddDays(4).AddHours(2)));
+        var createdBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Act
-        var booking = await bookingService.GetBookingByIdAsync(createdBooking.Id);
+        var booking = await bookingService.GetBookingByIdAsync(createdBooking.Id, User.SystemUserId, UserRole.User);
 
         // Assert
         booking.Id.Should().Be(createdBooking.Id);
@@ -97,9 +97,9 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Статусная проверка",
             description: "Подтверждение или отказ",
-            startAt: new DateTime(2026, 5, 13, 12, 0, 0),
-            endAt: new DateTime(2026, 5, 13, 14, 0, 0)));
-        var createdBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+            startAt: DateTime.UtcNow.AddDays(5),
+            endAt: DateTime.UtcNow.AddDays(5).AddHours(2)));
+        var createdBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
         var processedAt = new DateTime(2026, 5, 13, 12, 10, 0, DateTimeKind.Utc);
         var storedBooking = await context.Bookings.FirstAsync(item => item.Id == createdBooking.Id, cancellationToken);
         switch (status)
@@ -115,7 +115,7 @@ public class BookingServiceTests
         await context.SaveChangesAsync(cancellationToken);
 
         // Act
-        var booking = await bookingService.GetBookingByIdAsync(createdBooking.Id);
+        var booking = await bookingService.GetBookingByIdAsync(createdBooking.Id, User.SystemUserId, UserRole.User);
 
         // Assert
         booking.Status.Should().Be(status);
@@ -130,7 +130,7 @@ public class BookingServiceTests
         var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
 
         // Act
-        var action = async () => await bookingService.CreateBookingAsync(Guid.NewGuid());
+        var action = async () => await bookingService.CreateBookingAsync(Guid.NewGuid(), User.SystemUserId);
 
         // Assert
         await action.Should().ThrowAsync<NotFoundException>();
@@ -146,12 +146,12 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Удаляемое событие",
             description: "Проверка удаленного события",
-            startAt: new DateTime(2026, 5, 14, 10, 0, 0),
-            endAt: new DateTime(2026, 5, 14, 12, 0, 0)));
+            startAt: DateTime.UtcNow.AddDays(6),
+            endAt: DateTime.UtcNow.AddDays(6).AddHours(2)));
         await eventService.DeleteEventAsync(createdEvent.Id);
 
         // Act
-        var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id);
+        var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         await action.Should().ThrowAsync<NotFoundException>();
@@ -165,7 +165,7 @@ public class BookingServiceTests
         var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
 
         // Act
-        var action = async () => await bookingService.GetBookingByIdAsync(Guid.NewGuid());
+        var action = async () => await bookingService.GetBookingByIdAsync(Guid.NewGuid(), User.SystemUserId, UserRole.User);
 
         // Assert
         await action.Should().ThrowAsync<NotFoundException>();
@@ -181,12 +181,12 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Событие с местами",
             description: null,
-            startAt: new DateTime(2026, 5, 10, 10, 0, 0),
-            endAt: new DateTime(2026, 5, 10, 12, 0, 0),
+            startAt: DateTime.UtcNow.AddDays(7),
+            endAt: DateTime.UtcNow.AddDays(7).AddHours(2),
             totalSeats: 3));
 
         // Act
-        await bookingService.CreateBookingAsync(createdEvent.Id);
+        await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         var updatedEvent = await eventService.GetEventByIdAsync(createdEvent.Id);
@@ -203,14 +203,14 @@ public class BookingServiceTests
         var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
             title: "Однoместное событие",
             description: null,
-            startAt: new DateTime(2026, 5, 11, 10, 0, 0),
-            endAt: new DateTime(2026, 5, 11, 12, 0, 0),
+            startAt: DateTime.UtcNow.AddDays(8),
+            endAt: DateTime.UtcNow.AddDays(8).AddHours(2),
             totalSeats: 1));
 
-        await bookingService.CreateBookingAsync(createdEvent.Id);
+        await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Act
-        var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id);
+        var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         await action.Should().ThrowAsync<NoAvailableSeatsException>();
@@ -232,8 +232,8 @@ public class BookingServiceTests
             var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: "Конкурентное событие",
                 description: null,
-                startAt: new DateTime(2026, 5, 12, 10, 0, 0),
-                endAt: new DateTime(2026, 5, 12, 12, 0, 0),
+                startAt: DateTime.UtcNow.AddDays(9),
+                endAt: DateTime.UtcNow.AddDays(9).AddHours(2),
                 totalSeats: totalSeats));
             eventId = createdEvent.Id;
         }
@@ -248,9 +248,9 @@ public class BookingServiceTests
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
-                await bookingService.CreateBookingAsync(eventId);
+                await bookingService.CreateBookingAsync(eventId, Guid.NewGuid());
             }
-            catch (NoAvailableSeatsException ex)
+            catch (Exception ex) when (ex is NoAvailableSeatsException or TooManyActiveBookingsException)
             {
                 exceptions.Add(ex);
             }
@@ -285,8 +285,8 @@ public class BookingServiceTests
             var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: "Событие для Id-проверки",
                 description: null,
-                startAt: new DateTime(2026, 5, 13, 10, 0, 0),
-                endAt: new DateTime(2026, 5, 13, 12, 0, 0),
+                startAt: DateTime.UtcNow.AddDays(10),
+                endAt: DateTime.UtcNow.AddDays(10).AddHours(2),
                 totalSeats: totalSeats));
             eventId = createdEvent.Id;
         }
@@ -298,7 +298,7 @@ public class BookingServiceTests
                 using var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
-                return await bookingService.CreateBookingAsync(eventId);
+                return await bookingService.CreateBookingAsync(eventId, Guid.NewGuid());
             });
 
         var bookings = await Task.WhenAll(tasks);
@@ -306,5 +306,77 @@ public class BookingServiceTests
         // Assert
         bookings.Select(b => b.Id).Should().OnlyHaveUniqueItems();
         bookings.Should().HaveCount(totalSeats);
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_WhenEventAlreadyStarted_ThrowsBookingInPastException()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
+
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+            title: "Прошедшее событие",
+            description: null,
+            startAt: DateTime.UtcNow.AddHours(-1),
+            endAt: DateTime.UtcNow.AddMinutes(30),
+            totalSeats: 10));
+
+        var action = async () => await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
+
+        await action.Should().ThrowAsync<BookingInPastException>();
+    }
+
+    [Fact]
+    public async Task CreateBookingAsync_WhenUserExceedsActiveBookingsLimit_ThrowsTooManyActiveBookingsException()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
+        var userId = Guid.NewGuid();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+                title: $"Лимит {i}",
+                description: null,
+                startAt: DateTime.UtcNow.AddDays(2).AddHours(i),
+                endAt: DateTime.UtcNow.AddDays(2).AddHours(i + 1),
+                totalSeats: 5));
+
+            await bookingService.CreateBookingAsync(createdEvent.Id, userId);
+        }
+
+        var fourthEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+            title: "Лимит 4",
+            description: null,
+            startAt: DateTime.UtcNow.AddDays(3),
+            endAt: DateTime.UtcNow.AddDays(3).AddHours(1),
+            totalSeats: 5));
+
+        var action = async () => await bookingService.CreateBookingAsync(fourthEvent.Id, userId);
+
+        await action.Should().ThrowAsync<TooManyActiveBookingsException>();
+    }
+
+    [Fact]
+    public async Task CancelBookingAsync_WhenCalledByNonOwnerAndNotAdmin_ThrowsForbiddenOperationException()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
+        var ownerId = Guid.NewGuid();
+
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+            title: "Отмена",
+            description: null,
+            startAt: DateTime.UtcNow.AddDays(1),
+            endAt: DateTime.UtcNow.AddDays(1).AddHours(1),
+            totalSeats: 2));
+        var booking = await bookingService.CreateBookingAsync(createdEvent.Id, ownerId);
+
+        var action = async () => await bookingService.CancelBookingAsync(booking.Id, Guid.NewGuid(), UserRole.User);
+
+        await action.Should().ThrowAsync<ForbiddenOperationException>();
     }
 }
