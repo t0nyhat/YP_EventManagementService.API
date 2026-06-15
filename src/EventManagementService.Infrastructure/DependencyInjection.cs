@@ -1,6 +1,9 @@
 using EventManagementService.Application.Abstractions.Repositories;
+using EventManagementService.Application.Abstractions.Security;
 using EventManagementService.Infrastructure.DataAccess;
+using EventManagementService.Infrastructure.Configuration;
 using EventManagementService.Infrastructure.Repositories;
+using EventManagementService.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +28,13 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
+        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+
         services.AddScoped<IEventRepository, EventRepository>();
         services.AddScoped<IBookingRepository, BookingRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddSingleton<IPasswordHasher, Sha256PasswordHasher>();
+        services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;
     }
