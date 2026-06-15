@@ -379,4 +379,33 @@ public class BookingServiceTests
 
         await action.Should().ThrowAsync<ForbiddenOperationException>();
     }
+
+    [Fact]
+    public async Task CancelBookingAsync_WhenCalledByOwnerForConfirmedBooking_CancelsAndReleasesSeat()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
+        var ownerId = Guid.NewGuid();
+
+        var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+            title: "Отмена подтвержденной брони",
+            description: null,
+            startAt: DateTime.UtcNow.AddDays(2),
+            endAt: DateTime.UtcNow.AddDays(2).AddHours(1),
+            totalSeats: 2));
+
+        var booking = await bookingService.CreateBookingAsync(createdEvent.Id, ownerId);
+        booking.Confirm(DateTime.UtcNow);
+        await context.SaveChangesAsync(cancellationToken);
+
+        await bookingService.CancelBookingAsync(booking.Id, ownerId, UserRole.User);
+
+        var updatedBooking = await context.Bookings.FirstAsync(item => item.Id == booking.Id, cancellationToken);
+        updatedBooking.Status.Should().Be(BookingStatus.Cancelled);
+
+        var updatedEvent = await eventService.GetEventByIdAsync(createdEvent.Id);
+        updatedEvent.AvailableSeats.Should().Be(2);
+    }
 }

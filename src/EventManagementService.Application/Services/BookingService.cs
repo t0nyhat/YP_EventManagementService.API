@@ -80,18 +80,26 @@ public sealed class BookingService : IBookingService
 
     public async Task CancelBookingAsync(Guid bookingId, Guid requesterUserId, UserRole requesterRole)
     {
-        var booking = await _bookingRepository.GetByIdAsync(bookingId)
-            ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
+        await BookingLock.WaitAsync();
+        try
+        {
+            var booking = await _bookingRepository.GetByIdAsync(bookingId)
+                ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
 
-        EnsureAccess(booking, requesterUserId, requesterRole);
+            EnsureAccess(booking, requesterUserId, requesterRole);
 
-        booking.Cancel();
+            booking.Cancel();
 
-        var eventItem = await _eventRepository.GetByIdAsync(booking.EventId)
-            ?? throw new NotFoundException($"Событие с id {booking.EventId} не найдено.");
-        eventItem.ReleaseSeats();
+            var eventItem = await _eventRepository.GetByIdAsync(booking.EventId)
+                ?? throw new NotFoundException($"Событие с id {booking.EventId} не найдено.");
+            eventItem.ReleaseSeats();
 
-        await _bookingRepository.SaveChangesAsync();
+            await _bookingRepository.SaveChangesAsync();
+        }
+        finally
+        {
+            BookingLock.Release();
+        }
     }
 
     private static void EnsureAccess(Booking booking, Guid requesterUserId, UserRole requesterRole)

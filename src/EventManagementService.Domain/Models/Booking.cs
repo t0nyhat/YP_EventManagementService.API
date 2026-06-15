@@ -1,3 +1,5 @@
+using EventManagementService.Domain.Exceptions;
+
 namespace EventManagementService.Domain.Models;
 
 /// <summary>
@@ -99,18 +101,27 @@ public class Booking
 
     /// <summary>
     /// Cancels the booking and stores the processing timestamp.
+    /// Cancellation is allowed for Pending and Confirmed bookings.
     /// </summary>
     /// <param name="processedAt">Optional explicit processing timestamp for deterministic tests.</param>
     public void Cancel(DateTime? processedAt = null)
     {
-        SetProcessedState(BookingStatus.Cancelled, processedAt ?? DateTime.UtcNow);
+        if (Status is BookingStatus.Rejected or BookingStatus.Cancelled)
+        {
+            throw new BookingAlreadyProcessedException(
+                "Отмена недоступна для бронирования в текущем статусе.");
+        }
+
+        Status = BookingStatus.Cancelled;
+        ProcessedAt = processedAt ?? DateTime.UtcNow;
     }
 
     private void SetProcessedState(BookingStatus targetStatus, DateTime processedAt)
     {
         if (Status != BookingStatus.Pending)
         {
-            throw new InvalidOperationException("Обрабатывать можно только бронирования в статусе ожидания.");
+            throw new BookingAlreadyProcessedException(
+                "Обрабатывать можно только бронирования в статусе ожидания.");
         }
 
         Status = targetStatus;

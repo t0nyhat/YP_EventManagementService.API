@@ -1,4 +1,5 @@
 using EventManagementService.Domain.Models;
+using EventManagementService.Domain.Exceptions;
 using EventManagementService.Infrastructure.Repositories;
 using EventManagementService.API.Tests.Infrastructure;
 using EventManagementService.Application.Abstractions.Repositories;
@@ -69,7 +70,7 @@ public class BookingTests
     }
 
     [Fact]
-    public void Confirm_WhenBookingIsAlreadyProcessed_ThrowsInvalidOperationException()
+    public void Confirm_WhenBookingIsAlreadyProcessed_ThrowsBookingAlreadyProcessedException()
     {
         // Arrange
         var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId);
@@ -79,7 +80,7 @@ public class BookingTests
         var action = () => booking.Confirm();
 
         // Assert
-        action.Should().Throw<InvalidOperationException>()
+        action.Should().Throw<BookingAlreadyProcessedException>()
             .WithMessage("Обрабатывать можно только бронирования в статусе ожидания.");
     }
 

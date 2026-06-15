@@ -43,14 +43,25 @@ public class BookingDomainRulesTests
     }
 
     [Fact]
-    public void Cancel_WhenBookingIsAlreadyProcessed_ThrowsInvalidOperationException()
+    public void Cancel_WhenBookingIsConfirmed_SetsCancelledStatusAndProcessedAt()
     {
         var booking = Booking.CreatePending(Guid.NewGuid(), Guid.NewGuid());
         booking.Confirm(new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc));
 
+        booking.Cancel(new DateTime(2026, 4, 3, 12, 10, 0, DateTimeKind.Utc));
+
+        booking.Status.Should().Be(BookingStatus.Cancelled);
+        booking.ProcessedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Cancel_WhenBookingIsAlreadyCancelled_ThrowsBookingAlreadyProcessedException()
+    {
+        var booking = Booking.CreatePending(Guid.NewGuid(), Guid.NewGuid());
+        booking.Cancel(new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc));
+
         var action = () => booking.Cancel();
 
-        action.Should().Throw<InvalidOperationException>()
-            .WithMessage("Обрабатывать можно только бронирования в статусе ожидания.");
+        action.Should().Throw<BookingAlreadyProcessedException>();
     }
 }
