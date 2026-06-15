@@ -33,7 +33,7 @@ public sealed class UserService : IUserService
             throw new BusinessValidationException("Пароль пользователя не должен быть пустым.");
         }
 
-        var normalizedLogin = login.Trim();
+        var normalizedLogin = NormalizeLogin(login);
         var existingUser = await _userRepository.GetByLoginAsync(normalizedLogin);
         if (existingUser is not null)
         {
@@ -51,17 +51,23 @@ public sealed class UserService : IUserService
     {
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
         {
-            throw new NotFoundException("Неверный логин или пароль.");
+            throw new UnauthorizedAccessException("Неверный логин или пароль.");
         }
 
-        var user = await _userRepository.GetByLoginAsync(login.Trim())
-            ?? throw new NotFoundException("Неверный логин или пароль.");
+        var normalizedLogin = NormalizeLogin(login);
+        var user = await _userRepository.GetByLoginAsync(normalizedLogin)
+            ?? throw new UnauthorizedAccessException("Неверный логин или пароль.");
 
         if (!_passwordHasher.Verify(password, user.PasswordHash))
         {
-            throw new NotFoundException("Неверный логин или пароль.");
+            throw new UnauthorizedAccessException("Неверный логин или пароль.");
         }
 
         return _jwtTokenGenerator.GenerateToken(user.Id, user.Login, user.Role);
+    }
+
+    private static string NormalizeLogin(string login)
+    {
+        return login.Trim().ToLowerInvariant();
     }
 }

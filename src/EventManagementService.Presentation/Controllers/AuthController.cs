@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginUserRequest request)
     {
         var token = await _userService.LoginAsync(request.Login, request.Password);
