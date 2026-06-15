@@ -277,6 +277,15 @@ dotnet ef migrations add <MigrationName> \
   --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
+При необходимости можно сразу указать конкретный `DbContext`:
+
+```bash
+dotnet ef migrations add <MigrationName> \
+  --context AppDbContext \
+  --project src/EventManagementService.Infrastructure/EventManagementService.Infrastructure.csproj \
+  --startup-project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
+```
+
 Применение миграций:
 
 ```bash

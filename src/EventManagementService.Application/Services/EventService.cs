@@ -7,7 +7,7 @@ using EventManagementService.Domain.Models;
 namespace EventManagementService.Application.Services;
 
 /// <summary>
-/// EF Core implementation of <see cref="IEventService"/>.
+/// Application service implementation of <see cref="IEventService"/>.
 /// </summary>
 public sealed class EventService : IEventService
 {
