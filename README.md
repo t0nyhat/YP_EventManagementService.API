@@ -8,6 +8,7 @@ REST API для управления событиями и бронирован�
 - ASP.NET Core Web API
 - Entity Framework Core
 - PostgreSQL (`Npgsql`)
+- JWT Bearer Authentication (`System.IdentityModel.Tokens.Jwt`)
 - xUnit v3 + FluentAssertions
 - PostgreSQL Testcontainers для интеграционных тестов
 
@@ -89,6 +90,21 @@ dotnet test EventManagementService.API.sln
 }
 ```
 
+JWT-параметры также настраиваются в `src/EventManagementService.Presentation/appsettings.json`:
+
+```json
+{
+  "Jwt": {
+    "Issuer": "EventManagementService.API",
+    "Audience": "EventManagementService.API",
+    "SigningKey": "замени-на-сложный-секрет-минимум-32-байта",
+    "LifetimeMinutes": 60
+  }
+}
+```
+
+Важно: для HS256 длина `SigningKey` должна быть не меньше 32 байт.
+
 ## Swagger / OpenAPI
 
 В режиме `Development` доступны:
@@ -96,20 +112,28 @@ dotnet test EventManagementService.API.sln
 - Swagger UI: `http://localhost:5248/swagger`
 - OpenAPI JSON: `http://localhost:5248/openapi/v1.json`
 
+Для защищенных эндпоинтов в Swagger нажмите `Authorize` и передайте токен в формате `Bearer <jwt>`.
+
 ## Эндпоинты
 
 События:
 
 - `GET /api/events` — список с фильтрацией и пагинацией
 - `GET /api/events/{id}` — событие по `id`
-- `POST /api/events` — создать событие
-- `PUT /api/events/{id}` — обновить событие
-- `DELETE /api/events/{id}` — удалить событие
-- `POST /api/events/{id}/book` — создать бронирование
+- `POST /api/events` — создать событие (только `Admin`)
+- `PUT /api/events/{id}` — обновить событие (только `Admin`)
+- `DELETE /api/events/{id}` — удалить событие (только `Admin`)
+- `POST /api/events/{id}/book` — создать бронирование (требуется аутентификация)
+
+Аутентификация:
+
+- `POST /api/auth/register` — регистрация пользователя
+- `POST /api/auth/login` — вход и получение JWT-токена
 
 Бронирования:
 
-- `GET /api/bookings/{id}` — текущее состояние бронирования
+- `GET /api/bookings/{id}` — текущее состояние бронирования (владелец или `Admin`)
+- `DELETE /api/bookings/{id}` — отмена бронирования (владелец или `Admin`)
 
 ## Фильтрация и пагинация
 
@@ -182,6 +206,7 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 - `Pending` — создано, ожидает обработки
 - `Confirmed` — подтверждено
 - `Rejected` — отклонено
+- `Cancelled` — отменено пользователем/администратором
 
 Пример ответа `POST /api/events/{id}/book` и `GET /api/bookings/{id}`:
 
@@ -220,8 +245,10 @@ GET /api/events?title=dotnet&from=2026-05-01T00:00:00&page=1&pageSize=2
 Коды ответа:
 
 - `400 Bad Request` — ошибки валидации
+- `401 Unauthorized` — отсутствует или невалидный токен
+- `403 Forbidden` — недостаточно прав для выполнения операции
 - `404 Not Found` — ресурс не найден
-- `409 Conflict` — нет свободных мест
+- `409 Conflict` — бизнес-конфликты (нет свободных мест, лимит активных броней, недопустимая повторная обработка)
 - `500 Internal Server Error` — непредвиденная ошибка
 
 Пример `409 Conflict`:
@@ -299,6 +326,14 @@ dotnet ef database update \
 - `tests/EventManagementService.API.Tests/` — unit-тесты Domain/Application, тесты hosted service adapter и API pipeline на TestServer.
 - `tests/EventManagementService.API.IntegrationTests/` — интеграционные тесты Infrastructure-репозиториев и схемы PostgreSQL через Testcontainers.
 - Для интеграционных тестов нужен только Docker, отдельный PostgreSQL вручную поднимать не требуется.
+
+## Пример сценария: регистрация и бронирование
+
+1. `POST /api/auth/register` — зарегистрировать пользователя.
+2. `POST /api/auth/login` — получить JWT-токен.
+3. В Swagger нажать `Authorize` и вставить `Bearer <jwt>`.
+4. `POST /api/events/{id}/book` — создать бронирование.
+5. `GET /api/bookings/{bookingId}` — проверить статус.
 
 ## Пример сценария: успешное бронирование
 
