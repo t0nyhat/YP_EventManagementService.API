@@ -1,10 +1,9 @@
 using EventManagementService.Application.Dtos;
 using EventManagementService.Application.Services;
-using EventManagementService.Domain.Models;
 using EventManagementService.Presentation.Mappings;
+using EventManagementService.Presentation.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EventManagementService.Presentation.Controllers;
 
@@ -30,12 +29,12 @@ public class BookingsController(IBookingService bookingService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<BookingResponse>> GetBookingById(Guid id)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
+        if (!User.TryGetUserId(out var currentUserId))
         {
             return Unauthorized();
         }
 
-        var booking = await bookingService.GetBookingByIdAsync(id, currentUserId, GetCurrentUserRole());
+        var booking = await bookingService.GetBookingByIdAsync(id, currentUserId, User.GetUserRole());
         return Ok(booking.ToResponse());
     }
 
@@ -47,27 +46,12 @@ public class BookingsController(IBookingService bookingService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> CancelBooking(Guid id)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
+        if (!User.TryGetUserId(out var currentUserId))
         {
             return Unauthorized();
         }
 
-        await bookingService.CancelBookingAsync(id, currentUserId, GetCurrentUserRole());
+        await bookingService.CancelBookingAsync(id, currentUserId, User.GetUserRole());
         return NoContent();
-    }
-
-    private UserRole GetCurrentUserRole()
-    {
-        var value = User.FindFirstValue(ClaimTypes.Role);
-        return Enum.TryParse<UserRole>(value, ignoreCase: true, out var role)
-            ? role
-            : UserRole.User;
-    }
-
-    private bool TryGetCurrentUserId(out Guid userId)
-    {
-        userId = Guid.Empty;
-        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(value, out userId);
     }
 }
