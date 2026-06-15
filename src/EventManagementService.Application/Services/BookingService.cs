@@ -39,7 +39,7 @@ public sealed class BookingService : IBookingService
                 throw new NoAvailableSeatsException("Нет свободных мест на данное событие.");
             }
 
-            var booking = Booking.CreatePending(eventId);
+            var booking = Booking.CreatePending(eventId, User.SystemUserId);
             await _bookingRepository.AddAsync(booking);
             await _bookingRepository.SaveChangesAsync();
 

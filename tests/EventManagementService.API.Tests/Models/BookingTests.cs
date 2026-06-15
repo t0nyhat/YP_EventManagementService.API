@@ -17,7 +17,7 @@ public class BookingTests
         var createdAt = new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc);
 
         // Act
-        var booking = Booking.CreatePending(eventId, createdAt);
+        var booking = Booking.CreatePending(eventId, User.SystemUserId, createdAt);
 
         // Assert
         booking.Id.Should().NotBe(Guid.Empty);
@@ -31,7 +31,7 @@ public class BookingTests
     public void CreatePending_WhenEventIdIsEmpty_ThrowsArgumentException()
     {
         // Act
-        var action = () => Booking.CreatePending(Guid.Empty);
+        var action = () => Booking.CreatePending(Guid.Empty, User.SystemUserId);
 
         // Assert
         action.Should().Throw<ArgumentException>()
@@ -42,7 +42,7 @@ public class BookingTests
     public void Confirm_WhenBookingIsPending_SetsConfirmedStatusAndProcessedAt()
     {
         // Arrange
-        var booking = Booking.CreatePending(Guid.NewGuid(), new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
+        var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId, new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
         var processedAt = new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc);
 
         // Act
@@ -57,7 +57,7 @@ public class BookingTests
     public void Reject_WhenBookingIsPending_SetsRejectedStatusAndProcessedAt()
     {
         // Arrange
-        var booking = Booking.CreatePending(Guid.NewGuid(), new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
+        var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId, new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
         var processedAt = new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc);
 
         // Act
@@ -72,7 +72,7 @@ public class BookingTests
     public void Confirm_WhenBookingIsAlreadyProcessed_ThrowsInvalidOperationException()
     {
         // Arrange
-        var booking = Booking.CreatePending(Guid.NewGuid());
+        var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId);
         booking.Confirm(new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc));
 
         // Act

@@ -18,7 +18,7 @@ public class BookingProcessingBackgroundServiceTests
         using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var createdAt = new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc);
         var eventId = await SeedEventAsync(serviceProvider);
-        var bookingId = await SeedBookingAsync(serviceProvider, Booking.CreatePending(eventId, createdAt));
+        var bookingId = await SeedBookingAsync(serviceProvider, Booking.CreatePending(eventId, User.SystemUserId, createdAt));
         var worker = new BookingProcessingBackgroundService(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<BookingProcessingBackgroundService>.Instance);
@@ -48,7 +48,7 @@ public class BookingProcessingBackgroundServiceTests
         // Arrange
         using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var eventId = Guid.NewGuid();
-        var bookingId = await SeedBookingAsync(serviceProvider, Booking.CreatePending(eventId));
+        var bookingId = await SeedBookingAsync(serviceProvider, Booking.CreatePending(eventId, User.SystemUserId));
 
         var worker = new BookingProcessingBackgroundService(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
@@ -79,7 +79,7 @@ public class BookingProcessingBackgroundServiceTests
         using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var processedAt = DateTime.UtcNow;
         var eventId = await SeedEventAsync(serviceProvider);
-        var booking = Booking.CreatePending(eventId);
+        var booking = Booking.CreatePending(eventId, User.SystemUserId);
         booking.Confirm(processedAt);
         await SeedBookingAsync(serviceProvider, booking);
 
@@ -115,7 +115,7 @@ public class BookingProcessingBackgroundServiceTests
         using var serviceProvider = TestDbContextFactory.CreateServiceProvider();
         var eventId = await SeedEventAsync(serviceProvider, bookingCount);
         var bookingIds = new List<Guid>();
-        foreach (var booking in Enumerable.Range(0, bookingCount).Select(_ => Booking.CreatePending(eventId)))
+        foreach (var booking in Enumerable.Range(0, bookingCount).Select(_ => Booking.CreatePending(eventId, User.SystemUserId)))
         {
             bookingIds.Add(await SeedBookingAsync(serviceProvider, booking));
         }

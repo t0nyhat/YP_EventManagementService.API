@@ -56,6 +56,16 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    if (!db.Users.Any(user => user.Id == EventManagementService.Domain.Models.User.SystemUserId))
+    {
+        db.Users.Add(EventManagementService.Domain.Models.User.Create(
+            "system",
+            "system-hash",
+            EventManagementService.Domain.Models.UserRole.User,
+            EventManagementService.Domain.Models.User.SystemUserId));
+        db.SaveChanges();
+    }
 }
 
 // ========== HTTP Request Pipeline ==========

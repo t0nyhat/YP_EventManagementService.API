@@ -31,6 +31,7 @@ public sealed class PostgreSqlTestcontainerFixture : IAsyncLifetime
         // Осознанное отличие от учебного примера:
         // проверяем реальный путь через миграции (Migrate), а не EnsureCreated.
         await context.Database.MigrateAsync();
+        await SeedLegacySystemUserAsync(context);
     }
 
     public async ValueTask DisposeAsync()
@@ -73,5 +74,24 @@ public sealed class PostgreSqlTestcontainerFixture : IAsyncLifetime
 
         await using var command = new NpgsqlCommand(truncateSql, connection);
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await using var context = CreateDbContext();
+        await SeedLegacySystemUserAsync(context, cancellationToken);
+    }
+
+    private static async Task SeedLegacySystemUserAsync(AppDbContext context, CancellationToken cancellationToken = default)
+    {
+        if (await context.Users.AnyAsync(user => user.Id == EventManagementService.Domain.Models.User.SystemUserId, cancellationToken))
+        {
+            return;
+        }
+
+        context.Users.Add(EventManagementService.Domain.Models.User.Create(
+            "system",
+            "system-hash",
+            EventManagementService.Domain.Models.UserRole.User,
+            EventManagementService.Domain.Models.User.SystemUserId));
+
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

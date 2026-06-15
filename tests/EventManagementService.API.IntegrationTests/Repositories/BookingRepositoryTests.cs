@@ -23,7 +23,7 @@ public class BookingRepositoryTests
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
         var eventId = await SeedEventAsync(cancellationToken);
-        var booking = Booking.CreatePending(eventId, Utc(2026, 6, 10, 9, 0, 0));
+        var booking = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 10, 9, 0, 0));
 
         await using (var actContext = _fixture.CreateDbContext())
         {
@@ -51,7 +51,7 @@ public class BookingRepositoryTests
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
         var eventId = await SeedEventAsync(cancellationToken);
-        var booking = Booking.CreatePending(eventId, Utc(2026, 6, 10, 10, 0, 0));
+        var booking = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 10, 10, 0, 0));
 
         await using (var actContext = _fixture.CreateDbContext())
         {
@@ -74,7 +74,7 @@ public class BookingRepositoryTests
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
         var eventId = await SeedEventAsync(cancellationToken);
-        var booking = Booking.CreatePending(eventId, Utc(2026, 6, 11, 10, 0, 0));
+        var booking = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 11, 10, 0, 0));
 
         await using (var seedContext = _fixture.CreateDbContext())
         {
@@ -115,13 +115,13 @@ public class BookingRepositoryTests
 
         var eventId = await SeedEventAsync(cancellationToken);
 
-        var pendingBooking1 = Booking.CreatePending(eventId, Utc(2026, 6, 12, 10, 0, 0));
-        var pendingBooking2 = Booking.CreatePending(eventId, Utc(2026, 6, 12, 10, 5, 0));
+        var pendingBooking1 = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 12, 10, 0, 0));
+        var pendingBooking2 = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 12, 10, 5, 0));
 
-        var confirmedBooking = Booking.CreatePending(eventId, Utc(2026, 6, 12, 10, 10, 0));
+        var confirmedBooking = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 12, 10, 10, 0));
         confirmedBooking.Confirm(Utc(2026, 6, 12, 10, 20, 0));
 
-        var rejectedBooking = Booking.CreatePending(eventId, Utc(2026, 6, 12, 10, 15, 0));
+        var rejectedBooking = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 12, 10, 15, 0));
         rejectedBooking.Reject(Utc(2026, 6, 12, 10, 25, 0));
 
         await using (var seedContext = _fixture.CreateDbContext())
@@ -147,7 +147,7 @@ public class BookingRepositoryTests
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
         var eventId = await SeedEventAsync(cancellationToken);
-        var booking = Booking.CreatePending(eventId, Utc(2026, 6, 13, 9, 0, 0));
+        var booking = Booking.CreatePending(eventId, User.SystemUserId, Utc(2026, 6, 13, 9, 0, 0));
 
         await using (var seedContext = _fixture.CreateDbContext())
         {
