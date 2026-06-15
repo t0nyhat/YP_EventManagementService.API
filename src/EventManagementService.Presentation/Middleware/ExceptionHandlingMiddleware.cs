@@ -12,7 +12,6 @@ public sealed class ExceptionHandlingMiddleware(
     IProblemDetailsService problemDetailsService)
 {
     private static readonly Uri ValidationType = new("https://tools.ietf.org/html/rfc9110#section-15.5.1");
-    private static readonly Uri UnauthorizedType = new("https://tools.ietf.org/html/rfc9110#section-15.5.2");
     private static readonly Uri ConflictType = new("https://tools.ietf.org/html/rfc9110#section-15.5.10");
     private static readonly Uri ForbiddenType = new("https://tools.ietf.org/html/rfc9110#section-15.5.4");
     private static readonly Uri NotFoundType = new("https://tools.ietf.org/html/rfc9110#section-15.5.5");
@@ -84,7 +83,6 @@ public sealed class ExceptionHandlingMiddleware(
     {
         return exception switch
         {
-            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized", UnauthorizedType),
             ForbiddenOperationException => (StatusCodes.Status403Forbidden, "Forbidden", ForbiddenType),
             TooManyActiveBookingsException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
             BookingAlreadyProcessedException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),

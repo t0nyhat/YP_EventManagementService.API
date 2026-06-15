@@ -47,19 +47,19 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_WhenUserDoesNotExist_ThrowsUnauthorizedAccessException()
+    public async Task LoginAsync_WhenUserDoesNotExist_ThrowsNotFoundException()
     {
         _userRepository.Setup(repo => repo.GetByLoginAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
         var action = async () => await CreateService().LoginAsync("ghost", "secret");
 
-        await action.Should().ThrowAsync<UnauthorizedAccessException>()
+        await action.Should().ThrowAsync<Domain.Exceptions.NotFoundException>()
             .WithMessage("Неверный логин или пароль.");
     }
 
     [Fact]
-    public async Task LoginAsync_WhenPasswordIsWrong_ThrowsUnauthorizedAccessException()
+    public async Task LoginAsync_WhenPasswordIsWrong_ThrowsNotFoundException()
     {
         var user = User.Create("admin", _passwordHasher.Hash("secret"), UserRole.Admin);
         _userRepository.Setup(repo => repo.GetByLoginAsync("admin", It.IsAny<CancellationToken>()))
@@ -67,7 +67,7 @@ public class UserServiceTests
 
         var action = async () => await CreateService().LoginAsync("admin", "wrong");
 
-        await action.Should().ThrowAsync<UnauthorizedAccessException>()
+        await action.Should().ThrowAsync<Domain.Exceptions.NotFoundException>()
             .WithMessage("Неверный логин или пароль.");
     }
 

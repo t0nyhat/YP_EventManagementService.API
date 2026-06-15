@@ -335,7 +335,7 @@ public class BookingServiceTests
         var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var userId = Guid.NewGuid();
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 10; i++)
         {
             var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: $"Лимит {i}",
@@ -347,14 +347,14 @@ public class BookingServiceTests
             await bookingService.CreateBookingAsync(createdEvent.Id, userId);
         }
 
-        var fourthEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
-            title: "Лимит 4",
+        var overLimitEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+            title: "Лимит 11",
             description: null,
             startAt: DateTime.UtcNow.AddDays(3),
             endAt: DateTime.UtcNow.AddDays(3).AddHours(1),
             totalSeats: 5));
 
-        var action = async () => await bookingService.CreateBookingAsync(fourthEvent.Id, userId);
+        var action = async () => await bookingService.CreateBookingAsync(overLimitEvent.Id, userId);
 
         await action.Should().ThrowAsync<TooManyActiveBookingsException>();
     }
@@ -368,7 +368,7 @@ public class BookingServiceTests
         var firstUserId = Guid.NewGuid();
         var secondUserId = Guid.NewGuid();
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 10; i++)
         {
             var eventForFirstUser = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: $"Лимит первого пользователя {i}",

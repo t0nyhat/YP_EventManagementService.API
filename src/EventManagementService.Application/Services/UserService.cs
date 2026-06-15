@@ -51,16 +51,16 @@ public sealed class UserService : IUserService
     {
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
         {
-            throw new UnauthorizedAccessException("Неверный логин или пароль.");
+            throw new NotFoundException("Неверный логин или пароль.");
         }
 
         var normalizedLogin = NormalizeLogin(login);
         var user = await _userRepository.GetByLoginAsync(normalizedLogin)
-            ?? throw new UnauthorizedAccessException("Неверный логин или пароль.");
+            ?? throw new NotFoundException("Неверный логин или пароль.");
 
         if (!_passwordHasher.Verify(password, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("Неверный логин или пароль.");
+            throw new NotFoundException("Неверный логин или пароль.");
         }
 
         return _jwtTokenGenerator.GenerateToken(user.Id, user.Login, user.Role);

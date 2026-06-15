@@ -11,7 +11,7 @@ public sealed class BookingService : IBookingService
 {
     // Protects the atomic check-reserve-save sequence against concurrent booking requests.
     private static readonly SemaphoreSlim BookingLock = new(1, 1);
-    private const int MaxActiveBookingsPerUser = 3;
+    private const int MaxActiveBookingsPerUser = 10;
     private readonly IEventRepository _eventRepository;
     private readonly IBookingRepository _bookingRepository;
 
