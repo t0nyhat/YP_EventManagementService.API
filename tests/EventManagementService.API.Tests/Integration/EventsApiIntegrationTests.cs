@@ -295,6 +295,73 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task CreateBooking_WhenUnauthenticated_ReturnsUnauthorized()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var eventId = await CreateEventAsync("Unauthorized booking event", 3, cancellationToken);
+
+        using var response = await _client.PostAsync($"/api/events/{eventId}/book", content: null, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetBookingById_WhenUnauthenticated_ReturnsUnauthorized()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var eventId = await CreateEventAsync("Unauthorized booking read event", 3, cancellationToken);
+        var bookingId = await CreateBookingAsync(eventId, UserUserId, UserRole.User, cancellationToken);
+
+        using var response = await _client.GetAsync($"/api/bookings/{bookingId}", cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetBookingById_WhenRequesterIsNotOwnerAndNotAdmin_ReturnsForbidden()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var eventId = await CreateEventAsync("Forbidden booking read event", 3, cancellationToken);
+        var ownerId = Guid.NewGuid();
+        var bookingId = await CreateBookingAsync(eventId, ownerId, UserRole.User, cancellationToken);
+
+        using var request = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/bookings/{bookingId}", Guid.NewGuid(), UserRole.User);
+        using var response = await _client.SendAsync(request, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CancelBooking_WhenRequesterIsNotOwnerAndNotAdmin_ReturnsForbidden()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var eventId = await CreateEventAsync("Forbidden booking cancel event", 3, cancellationToken);
+        var ownerId = Guid.NewGuid();
+        var bookingId = await CreateBookingAsync(eventId, ownerId, UserRole.User, cancellationToken);
+
+        using var response = await DeleteAsync($"/api/bookings/{bookingId}", Guid.NewGuid(), UserRole.User, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CancelBooking_WhenRequesterIsAdmin_ReturnsNoContent()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var eventId = await CreateEventAsync("Admin booking cancel event", 3, cancellationToken);
+        var ownerId = Guid.NewGuid();
+        var bookingId = await CreateBookingAsync(eventId, ownerId, UserRole.User, cancellationToken);
+
+        using var response = await DeleteAsync($"/api/bookings/{bookingId}", AdminUserId, UserRole.Admin, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var cancelledBooking = await GetFromJsonAsync<BookingResponse>($"/api/bookings/{bookingId}", AdminUserId, UserRole.Admin, cancellationToken);
+        cancelledBooking.Should().NotBeNull();
+        cancelledBooking!.Status.Should().Be(BookingStatus.Cancelled);
+    }
+
     private async Task<BookingResponse> WaitForBookingStatusAsync(Guid bookingId, BookingStatus expectedStatus, Guid userId, UserRole role, TimeSpan timeout)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -341,6 +408,40 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
     {
         using var request = CreateAuthenticatedRequest(HttpMethod.Post, url, userId, role);
         return await _client.SendAsync(request, cancellationToken);
+    }
+
+    private async Task<HttpResponseMessage> DeleteAsync(string url, Guid userId, UserRole role, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthenticatedRequest(HttpMethod.Delete, url, userId, role);
+        return await _client.SendAsync(request, cancellationToken);
+    }
+
+    private async Task<Guid> CreateEventAsync(string title, int totalSeats, CancellationToken cancellationToken)
+    {
+        var request = new CreateEventRequest
+        {
+            Title = title,
+            StartAt = DateTime.UtcNow.AddDays(2),
+            EndAt = DateTime.UtcNow.AddDays(2).AddHours(2),
+            TotalSeats = totalSeats
+        };
+
+        using var response = await PostAsJsonAsync("/api/events", request, AdminUserId, UserRole.Admin, cancellationToken);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await response.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
+        createdEvent.Should().NotBeNull();
+        return createdEvent!.Id;
+    }
+
+    private async Task<Guid> CreateBookingAsync(Guid eventId, Guid userId, UserRole role, CancellationToken cancellationToken)
+    {
+        using var response = await PostAsync($"/api/events/{eventId}/book", userId, role, cancellationToken);
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        var createdBooking = await response.Content.ReadFromJsonAsync<BookingResponse>(cancellationToken);
+        createdBooking.Should().NotBeNull();
+        return createdBooking!.Id;
     }
 
     private static HttpRequestMessage CreateAuthenticatedRequest(HttpMethod method, string url, Guid userId, UserRole role)
