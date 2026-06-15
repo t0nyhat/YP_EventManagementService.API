@@ -3,7 +3,7 @@ namespace EventManagementService.Domain.Exceptions;
 /// <summary>
 /// Thrown when a business rule validation fails.
 /// </summary>
-public sealed class BusinessValidationException : Exception
+public class BusinessValidationException : Exception
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="BusinessValidationException"/> class.

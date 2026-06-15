@@ -16,6 +16,11 @@ public class Booking
     public Guid EventId { get; private set; }
 
     /// <summary>
+    /// Identifier of the user who created the booking.
+    /// </summary>
+    public Guid UserId { get; private set; }
+
+    /// <summary>
     /// Current booking processing status.
     /// </summary>
     public BookingStatus Status { get; private set; }
@@ -36,10 +41,11 @@ public class Booking
     {
     }
 
-    private Booking(Guid id, Guid eventId, BookingStatus status, DateTime createdAt, DateTime? processedAt)
+    private Booking(Guid id, Guid eventId, Guid userId, BookingStatus status, DateTime createdAt, DateTime? processedAt)
     {
         Id = id;
         EventId = eventId;
+        UserId = userId;
         Status = status;
         CreatedAt = createdAt;
         ProcessedAt = processedAt;
@@ -49,18 +55,25 @@ public class Booking
     /// Creates a new booking in Pending state.
     /// </summary>
     /// <param name="eventId">Event identifier the booking is created for.</param>
+    /// <param name="userId">User identifier who creates the booking.</param>
     /// <param name="createdAt">Optional explicit creation timestamp for deterministic tests.</param>
     /// <returns>A new booking instance in Pending state.</returns>
-    public static Booking CreatePending(Guid eventId, DateTime? createdAt = null)
+    public static Booking CreatePending(Guid eventId, Guid userId, DateTime? createdAt = null)
     {
         if (eventId == Guid.Empty)
         {
             throw new ArgumentException("Идентификатор события должен быть указан.", nameof(eventId));
         }
 
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("Идентификатор пользователя должен быть указан.", nameof(userId));
+        }
+
         return new Booking(
             Guid.NewGuid(),
             eventId,
+            userId,
             BookingStatus.Pending,
             createdAt ?? DateTime.UtcNow,
             processedAt: null);
@@ -82,6 +95,15 @@ public class Booking
     public void Reject(DateTime? processedAt = null)
     {
         SetProcessedState(BookingStatus.Rejected, processedAt ?? DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Cancels the booking and stores the processing timestamp.
+    /// </summary>
+    /// <param name="processedAt">Optional explicit processing timestamp for deterministic tests.</param>
+    public void Cancel(DateTime? processedAt = null)
+    {
+        SetProcessedState(BookingStatus.Cancelled, processedAt ?? DateTime.UtcNow);
     }
 
     private void SetProcessedState(BookingStatus targetStatus, DateTime processedAt)
