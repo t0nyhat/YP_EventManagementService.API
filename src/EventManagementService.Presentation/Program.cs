@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,27 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Event Management Service API",
         Version = "v1.0"
+    });
+
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Введите JWT токен в формате: Bearer {token}",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
+        BearerFormat = "JWT"
+    };
+
+    var securitySchemeReference = new OpenApiSecuritySchemeReference(
+        JwtBearerDefaults.AuthenticationScheme,
+        hostDocument: null,
+        externalResource: null);
+
+    options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, securityScheme);
+    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    {
+        [securitySchemeReference] = []
     });
 });
 
