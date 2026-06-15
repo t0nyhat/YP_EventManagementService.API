@@ -360,6 +360,40 @@ public class BookingServiceTests
     }
 
     [Fact]
+    public async Task CreateBookingAsync_WhenFirstUserReachedLimit_SecondUserCanStillBook()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var eventService = new EventService(new EventRepository(context));
+        var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
+        var firstUserId = Guid.NewGuid();
+        var secondUserId = Guid.NewGuid();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var eventForFirstUser = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+                title: $"Лимит первого пользователя {i}",
+                description: null,
+                startAt: DateTime.UtcNow.AddDays(4).AddHours(i),
+                endAt: DateTime.UtcNow.AddDays(4).AddHours(i + 1),
+                totalSeats: 2));
+
+            await bookingService.CreateBookingAsync(eventForFirstUser.Id, firstUserId);
+        }
+
+        var eventForSecondUser = await eventService.CreateEventAsync(EventTestData.CreateEvent(
+            title: "Отдельный лимит второго пользователя",
+            description: null,
+            startAt: DateTime.UtcNow.AddDays(5),
+            endAt: DateTime.UtcNow.AddDays(5).AddHours(1),
+            totalSeats: 2));
+
+        var booking = await bookingService.CreateBookingAsync(eventForSecondUser.Id, secondUserId);
+
+        booking.UserId.Should().Be(secondUserId);
+        booking.Status.Should().Be(BookingStatus.Pending);
+    }
+
+    [Fact]
     public async Task CancelBookingAsync_WhenCalledByNonOwnerAndNotAdmin_ThrowsForbiddenOperationException()
     {
         using var context = TestDbContextFactory.CreateContext();
