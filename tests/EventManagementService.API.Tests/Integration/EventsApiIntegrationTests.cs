@@ -260,6 +260,40 @@ public class EventsApiIntegrationTests : IClassFixture<ApiTestServerFixture>
     }
 
     [Fact]
+    public async Task CreateBooking_WhenEventAlreadyStarted_ReturnsBadRequestProblemDetails()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var createEventRequest = new CreateEventRequest
+        {
+            Title = "Already started event",
+            Description = "Booking should be rejected",
+            StartAt = DateTime.UtcNow.AddHours(-1),
+            EndAt = DateTime.UtcNow.AddHours(1),
+            TotalSeats = 3
+        };
+
+        using var createEventResponse = await PostAsJsonAsync("/api/events", createEventRequest, AdminUserId, UserRole.Admin, cancellationToken);
+        createEventResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var createdEvent = await createEventResponse.Content.ReadFromJsonAsync<EventResponse>(cancellationToken);
+        createdEvent.Should().NotBeNull();
+
+        using var response = await PostAsync($"/api/events/{createdEvent!.Id}/book", UserUserId, UserRole.User, cancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var root = payload.RootElement;
+
+        root.GetProperty("status").GetInt32().Should().Be(400);
+        root.GetProperty("title").GetString().Should().Be("Validation error");
+        root.GetProperty("detail").GetString().Should().Be("Нельзя бронировать событие, которое уже началось.");
+        root.GetProperty("instance").GetString().Should().Be($"/api/events/{createdEvent.Id}/book");
+    }
+
+    [Fact]
     public async Task CreateEvent_WhenUnauthenticated_ReturnsUnauthorized()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

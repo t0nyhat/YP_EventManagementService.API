@@ -1,3 +1,4 @@
+using EventManagementService.Application.Configuration;
 using EventManagementService.Domain.Exceptions;
 using EventManagementService.Domain.Models;
 using EventManagementService.Infrastructure.DataAccess;
@@ -335,7 +336,7 @@ public class BookingServiceTests
         var bookingService = new BookingService(new EventRepository(context), new BookingRepository(context));
         var userId = Guid.NewGuid();
 
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < BookingRules.MaxActiveBookingsPerUser; i++)
         {
             var createdEvent = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: $"Лимит {i}",
@@ -368,7 +369,7 @@ public class BookingServiceTests
         var firstUserId = Guid.NewGuid();
         var secondUserId = Guid.NewGuid();
 
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < BookingRules.MaxActiveBookingsPerUser; i++)
         {
             var eventForFirstUser = await eventService.CreateEventAsync(EventTestData.CreateEvent(
                 title: $"Лимит первого пользователя {i}",

@@ -1,4 +1,5 @@
 using EventManagementService.Application.Abstractions.Repositories;
+using EventManagementService.Application.Configuration;
 using EventManagementService.Domain.Exceptions;
 using EventManagementService.Domain.Models;
 
@@ -11,7 +12,6 @@ public sealed class BookingService : IBookingService
 {
     // Protects the atomic check-reserve-save sequence against concurrent booking requests.
     private static readonly SemaphoreSlim BookingLock = new(1, 1);
-    private const int MaxActiveBookingsPerUser = 10;
     private readonly IEventRepository _eventRepository;
     private readonly IBookingRepository _bookingRepository;
 
@@ -46,9 +46,9 @@ public sealed class BookingService : IBookingService
             }
 
             var activeBookings = await _bookingRepository.CountActiveByUserAsync(userId);
-            if (activeBookings >= MaxActiveBookingsPerUser)
+            if (activeBookings >= BookingRules.MaxActiveBookingsPerUser)
             {
-                throw new TooManyActiveBookingsException(MaxActiveBookingsPerUser);
+                throw new TooManyActiveBookingsException(BookingRules.MaxActiveBookingsPerUser);
             }
 
             if (!eventItem.TryReserveSeats())
