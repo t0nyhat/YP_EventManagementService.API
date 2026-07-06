@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace EventManagementService.Domain.Models;
 
 /// <summary>
 /// Represents the current processing state of a booking.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<BookingStatus>))]
 public enum BookingStatus
 {
     /// <summary>
@@ -18,5 +21,10 @@ public enum BookingStatus
     /// <summary>
     /// The booking has been rejected.
     /// </summary>
-    Rejected
+    Rejected,
+
+    /// <summary>
+    /// The booking has been cancelled.
+    /// </summary>
+    Cancelled
 }

@@ -1,4 +1,5 @@
 using EventManagementService.Domain.Models;
+using EventManagementService.Domain.Exceptions;
 using EventManagementService.Infrastructure.Repositories;
 using EventManagementService.API.Tests.Infrastructure;
 using EventManagementService.Application.Abstractions.Repositories;
@@ -17,7 +18,7 @@ public class BookingTests
         var createdAt = new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc);
 
         // Act
-        var booking = Booking.CreatePending(eventId, createdAt);
+        var booking = Booking.CreatePending(eventId, User.SystemUserId, createdAt);
 
         // Assert
         booking.Id.Should().NotBe(Guid.Empty);
@@ -31,7 +32,7 @@ public class BookingTests
     public void CreatePending_WhenEventIdIsEmpty_ThrowsArgumentException()
     {
         // Act
-        var action = () => Booking.CreatePending(Guid.Empty);
+        var action = () => Booking.CreatePending(Guid.Empty, User.SystemUserId);
 
         // Assert
         action.Should().Throw<ArgumentException>()
@@ -42,7 +43,7 @@ public class BookingTests
     public void Confirm_WhenBookingIsPending_SetsConfirmedStatusAndProcessedAt()
     {
         // Arrange
-        var booking = Booking.CreatePending(Guid.NewGuid(), new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
+        var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId, new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
         var processedAt = new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc);
 
         // Act
@@ -57,7 +58,7 @@ public class BookingTests
     public void Reject_WhenBookingIsPending_SetsRejectedStatusAndProcessedAt()
     {
         // Arrange
-        var booking = Booking.CreatePending(Guid.NewGuid(), new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
+        var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId, new DateTime(2026, 4, 3, 12, 0, 0, DateTimeKind.Utc));
         var processedAt = new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc);
 
         // Act
@@ -69,17 +70,17 @@ public class BookingTests
     }
 
     [Fact]
-    public void Confirm_WhenBookingIsAlreadyProcessed_ThrowsInvalidOperationException()
+    public void Confirm_WhenBookingIsAlreadyProcessed_ThrowsBookingAlreadyProcessedException()
     {
         // Arrange
-        var booking = Booking.CreatePending(Guid.NewGuid());
+        var booking = Booking.CreatePending(Guid.NewGuid(), User.SystemUserId);
         booking.Confirm(new DateTime(2026, 4, 3, 12, 5, 0, DateTimeKind.Utc));
 
         // Act
         var action = () => booking.Confirm();
 
         // Assert
-        action.Should().Throw<InvalidOperationException>()
+        action.Should().Throw<BookingAlreadyProcessedException>()
             .WithMessage("Обрабатывать можно только бронирования в статусе ожидания.");
     }
 
@@ -94,11 +95,11 @@ public class BookingTests
 
         var createdEvent = await eventService.CreateEventAsync(Event.Create(
             "Событие с возвратом",
-            new DateTime(2026, 5, 1, 10, 0, 0),
-            new DateTime(2026, 5, 1, 12, 0, 0),
+            DateTime.UtcNow.AddDays(2),
+            DateTime.UtcNow.AddDays(2).AddHours(2),
             totalSeats: 1));
 
-        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+        var firstBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Simulate rejection + seat release (what background service does on error/delete path)
         var storedBooking = await context.Bookings.FindAsync([firstBooking.Id], cancellationToken);
@@ -108,7 +109,7 @@ public class BookingTests
         await context.SaveChangesAsync(cancellationToken);
 
         // Act: now there should be a free seat again
-        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id);
+        var secondBooking = await bookingService.CreateBookingAsync(createdEvent.Id, User.SystemUserId);
 
         // Assert
         secondBooking.Id.Should().NotBe(firstBooking.Id);

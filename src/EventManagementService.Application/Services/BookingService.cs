@@ -1,4 +1,5 @@
 using EventManagementService.Application.Abstractions.Repositories;
+using EventManagementService.Application.Configuration;
 using EventManagementService.Domain.Exceptions;
 using EventManagementService.Domain.Models;
 
@@ -26,20 +27,36 @@ public sealed class BookingService : IBookingService
     }
 
     /// <inheritdoc />
-    public async Task<Booking> CreateBookingAsync(Guid eventId)
+    public async Task<Booking> CreateBookingAsync(Guid eventId, Guid userId)
     {
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("Идентификатор пользователя должен быть указан.", nameof(userId));
+        }
+
         await BookingLock.WaitAsync();
         try
         {
             var eventItem = await _eventRepository.GetByIdAsync(eventId)
                 ?? throw new NotFoundException($"Событие с id {eventId} не найдено.");
 
+            if (eventItem.StartAt <= DateTime.UtcNow)
+            {
+                throw new BookingInPastException();
+            }
+
+            var activeBookings = await _bookingRepository.CountActiveByUserAsync(userId);
+            if (activeBookings >= BookingRules.MaxActiveBookingsPerUser)
+            {
+                throw new TooManyActiveBookingsException(BookingRules.MaxActiveBookingsPerUser);
+            }
+
             if (!eventItem.TryReserveSeats())
             {
                 throw new NoAvailableSeatsException("Нет свободных мест на данное событие.");
             }
 
-            var booking = Booking.CreatePending(eventId);
+            var booking = Booking.CreatePending(eventId, userId);
             await _bookingRepository.AddAsync(booking);
             await _bookingRepository.SaveChangesAsync();
 
@@ -52,9 +69,49 @@ public sealed class BookingService : IBookingService
     }
 
     /// <inheritdoc />
-    public async Task<Booking> GetBookingByIdAsync(Guid bookingId)
+    public async Task<Booking> GetBookingByIdAsync(Guid bookingId, Guid requesterUserId, UserRole requesterRole)
     {
-        return await _bookingRepository.GetByIdAsync(bookingId)
+        var booking = await _bookingRepository.GetByIdAsync(bookingId)
             ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
+
+        EnsureAccess(booking, requesterUserId, requesterRole);
+        return booking;
+    }
+
+    public async Task CancelBookingAsync(Guid bookingId, Guid requesterUserId, UserRole requesterRole)
+    {
+        await BookingLock.WaitAsync();
+        try
+        {
+            var booking = await _bookingRepository.GetByIdAsync(bookingId)
+                ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
+
+            EnsureAccess(booking, requesterUserId, requesterRole);
+
+            booking.Cancel();
+
+            var eventItem = await _eventRepository.GetByIdAsync(booking.EventId)
+                ?? throw new NotFoundException($"Событие с id {booking.EventId} не найдено.");
+            eventItem.ReleaseSeats();
+
+            await _bookingRepository.SaveChangesAsync();
+        }
+        finally
+        {
+            BookingLock.Release();
+        }
+    }
+
+    private static void EnsureAccess(Booking booking, Guid requesterUserId, UserRole requesterRole)
+    {
+        if (requesterUserId == Guid.Empty)
+        {
+            throw new ArgumentException("Идентификатор пользователя должен быть указан.", nameof(requesterUserId));
+        }
+
+        if (booking.UserId != requesterUserId && requesterRole != UserRole.Admin)
+        {
+            throw new ForbiddenOperationException();
+        }
     }
 }

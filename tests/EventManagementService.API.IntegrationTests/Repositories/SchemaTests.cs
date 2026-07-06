@@ -27,9 +27,11 @@ public class SchemaTests
 
         var hasEventsTable = await TableExistsAsync(context, "events", cancellationToken);
         var hasBookingsTable = await TableExistsAsync(context, "bookings", cancellationToken);
+        var hasUsersTable = await TableExistsAsync(context, "users", cancellationToken);
 
         hasEventsTable.Should().BeTrue();
         hasBookingsTable.Should().BeTrue();
+        hasUsersTable.Should().BeTrue();
 
         var eventColumns = await GetColumnNamesAsync(context, "events", cancellationToken);
         var bookingColumns = await GetColumnNamesAsync(context, "bookings", cancellationToken);
@@ -51,14 +53,27 @@ public class SchemaTests
             "event_id",
             "status",
             "created_at",
-            "processed_at"
+            "processed_at",
+            "user_id"
+        });
+
+        var userColumns = await GetColumnNamesAsync(context, "users", cancellationToken);
+
+        userColumns.Should().BeEquivalentTo(new[]
+        {
+            "id",
+            "login",
+            "password_hash",
+            "role"
         });
 
         var eventPrimaryKey = await GetPrimaryKeyColumnsAsync(context, "events", cancellationToken);
         var bookingPrimaryKey = await GetPrimaryKeyColumnsAsync(context, "bookings", cancellationToken);
+        var userPrimaryKey = await GetPrimaryKeyColumnsAsync(context, "users", cancellationToken);
 
         eventPrimaryKey.Should().BeEquivalentTo(["id"]);
         bookingPrimaryKey.Should().BeEquivalentTo(["id"]);
+        userPrimaryKey.Should().BeEquivalentTo(["id"]);
 
         var requiredColumns = await GetNotNullColumnsAsync(context, "events", cancellationToken);
         requiredColumns.Should().Contain(new[]
@@ -80,11 +95,17 @@ public class SchemaTests
 
         await using var context = _fixture.CreateDbContext();
         var foreignKey = await GetForeignKeyAsync(context, "bookings", "events", cancellationToken);
+        var userForeignKey = await GetForeignKeyAsync(context, "bookings", "users", cancellationToken);
 
         foreignKey.Should().NotBeNull();
         foreignKey!.SourceColumn.Should().Be("event_id");
         foreignKey.TargetColumn.Should().Be("id");
         foreignKey.DeleteAction.Should().Be("c");
+
+        userForeignKey.Should().NotBeNull();
+        userForeignKey!.SourceColumn.Should().Be("user_id");
+        userForeignKey.TargetColumn.Should().Be("id");
+        userForeignKey.DeleteAction.Should().Be("r");
     }
 
     [Fact]
@@ -94,7 +115,7 @@ public class SchemaTests
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
         await using var context = _fixture.CreateDbContext();
-        context.Bookings.Add(Booking.CreatePending(Guid.NewGuid(), Utc(2026, 6, 20, 10, 0, 0)));
+        context.Bookings.Add(Booking.CreatePending(Guid.NewGuid(), User.SystemUserId, Utc(2026, 6, 20, 10, 0, 0)));
 
         var act = async () => await context.SaveChangesAsync(cancellationToken);
 

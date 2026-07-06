@@ -1,6 +1,8 @@
 using EventManagementService.Application.Dtos;
 using EventManagementService.Application.Services;
+using EventManagementService.Domain.Models;
 using EventManagementService.Presentation.Mappings;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventManagementService.Presentation.Controllers;
@@ -44,8 +46,11 @@ public class EventsController(IEventService eventService) : ControllerBase
     /// <param name="request">Event data to create.</param>
     /// <returns>Created event with server-generated Id.</returns>
     [HttpPost]
+    [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<EventResponse>> CreateEvent([FromBody] CreateEventRequest request)
     {
         // Create event (service generates Id).
@@ -63,9 +68,12 @@ public class EventsController(IEventService eventService) : ControllerBase
     /// <param name="request">Updated event data.</param>
     /// <returns>Updated event.</returns>
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<EventResponse>> UpdateEvent(Guid id, [FromBody] UpdateEventRequest request)
     {
         // Update event.
@@ -78,8 +86,11 @@ public class EventsController(IEventService eventService) : ControllerBase
     /// <param name="id">Event identifier.</param>
     /// <returns>No content on success.</returns>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult> DeleteEvent(Guid id)
     {
         await eventService.DeleteEventAsync(id);

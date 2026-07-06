@@ -1,6 +1,8 @@
 using EventManagementService.Application.Dtos;
 using EventManagementService.Presentation.Mappings;
+using EventManagementService.Presentation.Security;
 using EventManagementService.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventManagementService.Presentation.Controllers;
@@ -10,6 +12,7 @@ namespace EventManagementService.Presentation.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/events")]
+[Authorize]
 public class EventBookingsController(IBookingService bookingService) : ControllerBase
 {
     /// <summary>
@@ -21,9 +24,15 @@ public class EventBookingsController(IBookingService bookingService) : Controlle
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<BookingResponse>> CreateBooking(Guid id)
     {
-        var booking = await bookingService.CreateBookingAsync(id);
+        if (!User.TryGetUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var booking = await bookingService.CreateBookingAsync(id, currentUserId);
         return AcceptedAtRoute(BookingsController.GetBookingByIdRouteName, new { id = booking.Id }, booking.ToResponse());
     }
 }

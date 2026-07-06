@@ -33,9 +33,18 @@ internal sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(booking => booking.ProcessedAt)
             .HasColumnName("processed_at");
 
+        builder.Property(booking => booking.UserId)
+            .HasColumnName("user_id")
+            .IsRequired();
+
         builder.HasOne(booking => booking.Event)
             .WithMany(eventModel => eventModel.Bookings)
             .HasForeignKey(booking => booking.EventId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(booking => booking.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

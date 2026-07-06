@@ -13,6 +13,7 @@ public sealed class ExceptionHandlingMiddleware(
 {
     private static readonly Uri ValidationType = new("https://tools.ietf.org/html/rfc9110#section-15.5.1");
     private static readonly Uri ConflictType = new("https://tools.ietf.org/html/rfc9110#section-15.5.10");
+    private static readonly Uri ForbiddenType = new("https://tools.ietf.org/html/rfc9110#section-15.5.4");
     private static readonly Uri NotFoundType = new("https://tools.ietf.org/html/rfc9110#section-15.5.5");
     private static readonly Uri ServerErrorType = new("https://tools.ietf.org/html/rfc9110#section-15.6.1");
 
@@ -82,6 +83,9 @@ public sealed class ExceptionHandlingMiddleware(
     {
         return exception switch
         {
+            ForbiddenOperationException => (StatusCodes.Status403Forbidden, "Forbidden", ForbiddenType),
+            TooManyActiveBookingsException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
+            BookingAlreadyProcessedException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
             BusinessValidationException => (StatusCodes.Status400BadRequest, "Validation error", ValidationType),
             NoAvailableSeatsException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
             NotFoundException => (StatusCodes.Status404NotFound, "Resource not found", NotFoundType),
