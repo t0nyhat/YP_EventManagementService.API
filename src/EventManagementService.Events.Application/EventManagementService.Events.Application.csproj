@@ -2,6 +2,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\EventManagementService.Events.Domain\EventManagementService.Events.Domain.csproj" />
+        <ProjectReference Include="..\EventManagementService.Contracts\EventManagementService.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup>
