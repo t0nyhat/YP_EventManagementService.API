@@ -6,11 +6,14 @@ using EventManagementService.Events.Infrastructure.Messaging;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 
 namespace EventManagementService.Events.Tests.Services;
 
 public class BookingConfirmedHandlerTests : IDisposable
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     private readonly EventsDbContext _context;
     private readonly IBookingConfirmedHandler _handler;
 
@@ -61,6 +64,32 @@ public class BookingConfirmedHandlerTests : IDisposable
             .FirstOrDefaultAsync(x => x.BookingId == message.BookingId, TestCancellationToken);
         inbox.Should().NotBeNull();
         inbox!.Result.Should().Be("Processed");
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenMessageIsDeserializedFromWebJson_DecreasesAvailableSeats()
+    {
+        var ev = Event.Create("Test", DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(2), 10);
+        _context.Events.Add(ev);
+        await _context.SaveChangesAsync(TestCancellationToken);
+
+        var originalMessage = new BookingConfirmed(
+            BookingId: Guid.NewGuid(),
+            EventId: ev.Id,
+            UserId: Guid.NewGuid(),
+            Seats: 2,
+            ConfirmedAtUtc: DateTimeOffset.UtcNow);
+        var payload = JsonSerializer.Serialize(originalMessage, JsonOptions);
+        var message = JsonSerializer.Deserialize<BookingConfirmed>(payload, JsonOptions);
+
+        message.Should().NotBeNull();
+
+        var result = await _handler.HandleAsync(message!, TestCancellationToken);
+
+        result.Should().BeTrue();
+
+        var updatedEvent = await FindEventAsync(ev.Id);
+        updatedEvent!.AvailableSeats.Should().Be(8);
     }
 
     [Fact]

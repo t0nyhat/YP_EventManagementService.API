@@ -7,6 +7,8 @@ namespace EventManagementService.Bookings.Infrastructure.DataAccess;
 /// </summary>
 public class BookingOutboxMessage
 {
+    private const int MaxLastErrorLength = 2000;
+
     private BookingOutboxMessage()
     {
         Payload = null!;
@@ -82,6 +84,8 @@ public class BookingOutboxMessage
     public void RecordFailure(string error)
     {
         PublishAttempts++;
-        LastError = error;
+        LastError = error.Length <= MaxLastErrorLength
+            ? error
+            : error[..MaxLastErrorLength];
     }
 }

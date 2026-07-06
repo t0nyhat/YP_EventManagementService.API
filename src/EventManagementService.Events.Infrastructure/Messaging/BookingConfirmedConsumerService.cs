@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
 using EventManagementService.Contracts;
@@ -15,6 +14,8 @@ namespace EventManagementService.Events.Infrastructure.Messaging;
 /// </summary>
 public sealed class BookingConfirmedConsumerService : BackgroundService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     private readonly IConsumer<string, string> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BookingConfirmedConsumerService> _logger;
@@ -109,12 +110,7 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
     {
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            return JsonSerializer.Deserialize<BookingConfirmed>(value, options);
+            return JsonSerializer.Deserialize<BookingConfirmed>(value, JsonOptions);
         }
         catch (JsonException)
         {
