@@ -65,9 +65,18 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
 6. Сервис **Events** через [`BookingConfirmedConsumerService`](src/EventManagementService.Events.Infrastructure/Messaging/BookingConfirmedConsumerService.cs) читает сообщения из топика.
 7. [`BookingConfirmedHandler`](src/EventManagementService.Events.Infrastructure/Messaging/BookingConfirmedHandler.cs) обрабатывает событие:
    - Если `booking_id` уже есть в inbox — **no-op** (идемпотентность).
-   - Если событие не найдено — логирует warning и записывает inbox со статусом `skipped`.
-   - Если недостаточно мест — логирует warning и записывает inbox со статусом `skipped`.
+   - Если событие не найдено — логирует warning и записывает inbox с результатом `EventNotFound`.
+   - Если событие уже началось — логирует warning и записывает inbox с результатом `EventAlreadyStarted`.
+   - Если недостаточно мест — логирует warning и записывает inbox с результатом `NotEnoughSeats`.
    - Если всё корректно — уменьшает `available_seats` и сохраняет inbox-строку в одной транзакции.
+   - При неожиданной ошибке (например, недоступна БД) консюмер делает `Seek` на упавший оффсет и повторяет сообщение — подтверждённые брони не теряются.
+
+Опубликованные outbox-строки старше 7 дней периодически удаляются фоновым сервисом; inbox-строки не удаляются — они хранят историю идемпотентности.
+
+### Осознанные ограничения (eventual consistency)
+
+- Bookings **не проверяет** существование события, дату начала и наличие мест при создании брони — это ответственность Events при обработке `BookingConfirmed`. Если событие не найдено, уже началось или мест нет, бронь в Bookings **остаётся `Confirmed`**: компенсирующего события в рамках спринта 9 нет (задание требует только `BookingConfirmed`).
+- Отмена брони — локальная операция Bookings: место в Events **не возвращается** (событие `BookingCancelled` не входит в рамки спринта).
 
 ### Поток JWT
 
@@ -238,7 +247,7 @@ dotnet test EventManagementService.API.sln
 | `Jwt__Issuer` | Издатель токена | `EventManagementService.API` |
 | `Jwt__Audience` | Аудитория токена | `EventManagementService.API` |
 | `Jwt__SigningKey` | Секретный ключ (мин. 32 байта) | — |
-| `Jwt__LifetimeMinutes` | Время жизни токена | `60` |
+| `Jwt__LifetimeMinutes` | Время жизни токена (только Users — он выпускает токены) | `60` |
 | `Kafka__BootstrapServers` | Адрес Kafka-брокера | `kafka:9092` |
 | `Kafka__ConsumerGroup` | Группа потребителей (только Events) | `events-service` |
 
