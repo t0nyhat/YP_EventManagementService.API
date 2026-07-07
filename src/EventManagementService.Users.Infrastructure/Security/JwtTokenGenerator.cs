@@ -11,6 +11,9 @@ namespace EventManagementService.Users.Infrastructure.Security;
 
 public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
+    // WriteToken is thread-safe; allocating a handler per request adds unnecessary overhead.
+    private static readonly JwtSecurityTokenHandler TokenHandler = new();
+
     private readonly JwtOptions _options;
 
     public JwtTokenGenerator(IOptions<JwtOptions> options)
@@ -51,6 +54,6 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
             expires: DateTime.UtcNow.AddMinutes(_options.LifetimeMinutes),
             signingCredentials: credentials);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return TokenHandler.WriteToken(token);
     }
 }
