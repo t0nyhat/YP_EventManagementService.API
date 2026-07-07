@@ -132,7 +132,6 @@ services:
       Jwt__Issuer: EventManagementService.API
       Jwt__Audience: EventManagementService.API
       Jwt__SigningKey: replace_with_strong_32_byte_key_1234
-      Jwt__LifetimeMinutes: 60
       Kafka__BootstrapServers: kafka:9092
       Kafka__ConsumerGroup: events-service
 
@@ -156,7 +155,6 @@ services:
       Jwt__Issuer: EventManagementService.API
       Jwt__Audience: EventManagementService.API
       Jwt__SigningKey: replace_with_strong_32_byte_key_1234
-      Jwt__LifetimeMinutes: 60
       Kafka__BootstrapServers: kafka:9092
 
 volumes:
