@@ -14,8 +14,6 @@ namespace EventManagementService.Events.Infrastructure.Messaging;
 /// </summary>
 public sealed class BookingConfirmedConsumerService : BackgroundService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     private readonly IConsumer<string, string> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BookingConfirmedConsumerService> _logger;
@@ -83,7 +81,23 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
                         continue;
                     }
 
-                    await handler.HandleAsync(message, stoppingToken);
+                    try
+                    {
+                        await handler.HandleAsync(message, stoppingToken);
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        // Позиция консюмера уже сдвинута за это сообщение, поэтому без Seek
+                        // следующий успешный Commit навсегда пропустил бы упавшее сообщение.
+                        _logger.LogError(
+                            exception,
+                            "Failed to handle BookingConfirmed at offset {Offset}. Seeking back to retry.",
+                            result.TopicPartitionOffset);
+                        _consumer.Seek(result.TopicPartitionOffset);
+                        await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                        continue;
+                    }
+
                     _consumer.Commit(result);
                 }
                 catch (ConsumeException ex) when (ex.Error.IsLocalError)
@@ -113,7 +127,7 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
     {
         try
         {
-            return JsonSerializer.Deserialize<BookingConfirmed>(value, JsonOptions);
+            return JsonSerializer.Deserialize<BookingConfirmed>(value, KafkaJson.Options);
         }
         catch (JsonException)
         {

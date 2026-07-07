@@ -48,18 +48,17 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
                 "Event {EventId} not found for BookingConfirmed {BookingId}. Recording inbox with skipped result.",
                 message.EventId, message.BookingId);
 
-            _context.BookingConfirmedInbox.Add(new BookingConfirmedInbox
-            {
-                BookingId = message.BookingId,
-                EventId = message.EventId,
-                UserId = message.UserId,
-                Seats = message.Seats,
-                ConfirmedAtUtc = message.ConfirmedAtUtc,
-                ProcessedAtUtc = DateTimeOffset.UtcNow,
-                Result = "EventNotFound"
-            });
+            await RecordInboxAsync(message, "EventNotFound", cancellationToken);
+            return false;
+        }
 
-            await _context.SaveChangesAsync(cancellationToken);
+        if (eventEntity.StartAt <= DateTime.UtcNow)
+        {
+            _logger.LogWarning(
+                "Event {EventId} already started at {StartAt} for BookingConfirmed {BookingId}. Recording inbox with skipped result.",
+                message.EventId, eventEntity.StartAt, message.BookingId);
+
+            await RecordInboxAsync(message, "EventAlreadyStarted", cancellationToken);
             return false;
         }
 
@@ -69,21 +68,25 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
                 "Not enough available seats for event {EventId}. Available: {Available}, Requested: {Seats}. Recording inbox with skipped result.",
                 message.EventId, eventEntity.AvailableSeats, message.Seats);
 
-            _context.BookingConfirmedInbox.Add(new BookingConfirmedInbox
-            {
-                BookingId = message.BookingId,
-                EventId = message.EventId,
-                UserId = message.UserId,
-                Seats = message.Seats,
-                ConfirmedAtUtc = message.ConfirmedAtUtc,
-                ProcessedAtUtc = DateTimeOffset.UtcNow,
-                Result = "NotEnoughSeats"
-            });
-
-            await _context.SaveChangesAsync(cancellationToken);
+            await RecordInboxAsync(message, "NotEnoughSeats", cancellationToken);
             return false;
         }
 
+        await RecordInboxAsync(message, "Processed", cancellationToken);
+
+        _logger.LogInformation(
+            "Successfully processed BookingConfirmed {BookingId}. Decreased available seats for event {EventId} by {Seats}.",
+            message.BookingId, message.EventId, message.Seats);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Records the processing result in the inbox and saves all pending context changes
+    /// (including the seat decrement) with a single SaveChanges — one transaction.
+    /// </summary>
+    private Task RecordInboxAsync(BookingConfirmed message, string result, CancellationToken cancellationToken)
+    {
         _context.BookingConfirmedInbox.Add(new BookingConfirmedInbox
         {
             BookingId = message.BookingId,
@@ -92,15 +95,9 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
             Seats = message.Seats,
             ConfirmedAtUtc = message.ConfirmedAtUtc,
             ProcessedAtUtc = DateTimeOffset.UtcNow,
-            Result = "Processed"
+            Result = result
         });
 
-        await _context.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation(
-            "Successfully processed BookingConfirmed {BookingId}. Decreased available seats for event {EventId} by {Seats}.",
-            message.BookingId, message.EventId, message.Seats);
-
-        return true;
+        return _context.SaveChangesAsync(cancellationToken);
     }
 }

@@ -12,7 +12,7 @@ namespace EventManagementService.Events.Tests.Services;
 
 public class BookingConfirmedHandlerTests : IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = KafkaJson.Options;
 
     private readonly EventsDbContext _context;
     private readonly IBookingConfirmedHandler _handler;
@@ -122,6 +122,33 @@ public class BookingConfirmedHandlerTests : IDisposable
 
         var updatedEvent = await FindEventAsync(ev.Id);
         updatedEvent!.AvailableSeats.Should().Be(97);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEventAlreadyStarted_RecordsInboxAndDoesNotDecreaseSeats()
+    {
+        var ev = Event.Create("Test", DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), 100);
+        _context.Events.Add(ev);
+        await _context.SaveChangesAsync(TestCancellationToken);
+
+        var message = new BookingConfirmed(
+            BookingId: Guid.NewGuid(),
+            EventId: ev.Id,
+            UserId: Guid.NewGuid(),
+            Seats: 1,
+            ConfirmedAtUtc: DateTimeOffset.UtcNow);
+
+        var result = await _handler.HandleAsync(message, TestCancellationToken);
+
+        result.Should().BeFalse();
+
+        var updatedEvent = await FindEventAsync(ev.Id);
+        updatedEvent!.AvailableSeats.Should().Be(100);
+
+        var inbox = await _context.BookingConfirmedInbox
+            .FirstOrDefaultAsync(x => x.BookingId == message.BookingId, TestCancellationToken);
+        inbox.Should().NotBeNull();
+        inbox!.Result.Should().Be("EventAlreadyStarted");
     }
 
     [Fact]

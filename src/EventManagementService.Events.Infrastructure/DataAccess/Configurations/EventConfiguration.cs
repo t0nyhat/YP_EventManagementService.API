@@ -1,4 +1,5 @@
 using EventManagementService.Events.Domain.Models;
+using EventManagementService.Events.Infrastructure.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -27,10 +28,12 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<Event>
 
         builder.Property(eventModel => eventModel.StartAt)
             .HasColumnName("start_at")
+            .HasConversion(new UtcDateTimeConverter())
             .IsRequired();
 
         builder.Property(eventModel => eventModel.EndAt)
             .HasColumnName("end_at")
+            .HasConversion(new UtcDateTimeConverter())
             .IsRequired();
 
         builder.Property(eventModel => eventModel.TotalSeats)
