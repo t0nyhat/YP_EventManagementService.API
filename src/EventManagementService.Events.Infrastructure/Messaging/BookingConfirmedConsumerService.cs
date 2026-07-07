@@ -43,6 +43,9 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+
+        await Task.Yield();
+
         _consumer.Subscribe(KafkaTopics.BookingConfirmed);
 
         _logger.LogInformation(
