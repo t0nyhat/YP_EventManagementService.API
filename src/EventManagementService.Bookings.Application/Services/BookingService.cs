@@ -26,12 +26,12 @@ public sealed class BookingService : IBookingService
     {
         if (eventId == Guid.Empty)
         {
-            throw new BusinessValidationException("Event id must be specified.");
+            throw new BusinessValidationException("Идентификатор события должен быть указан.");
         }
 
         if (userId == Guid.Empty)
         {
-            throw new BusinessValidationException("User id must be specified.");
+            throw new BusinessValidationException("Идентификатор пользователя должен быть указан.");
         }
 
         await BookingLock.WaitAsync(cancellationToken);
@@ -62,7 +62,7 @@ public sealed class BookingService : IBookingService
         CancellationToken cancellationToken = default)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId, cancellationToken)
-            ?? throw new NotFoundException($"Booking with id {bookingId} was not found.");
+            ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
 
         EnsureAccess(booking, requesterUserId, requesterRole);
         return booking;
@@ -75,7 +75,7 @@ public sealed class BookingService : IBookingService
         CancellationToken cancellationToken = default)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId, cancellationToken)
-            ?? throw new NotFoundException($"Booking with id {bookingId} was not found.");
+            ?? throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
 
         EnsureAccess(booking, requesterUserId, requesterRole);
 
@@ -87,7 +87,7 @@ public sealed class BookingService : IBookingService
     {
         if (requesterUserId == Guid.Empty)
         {
-            throw new BusinessValidationException("User id must be specified.");
+            throw new BusinessValidationException("Идентификатор пользователя должен быть указан.");
         }
 
         if (booking.UserId != requesterUserId && requesterRole != UserRole.Admin)

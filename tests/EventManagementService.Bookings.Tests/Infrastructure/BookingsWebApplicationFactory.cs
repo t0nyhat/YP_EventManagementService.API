@@ -88,7 +88,7 @@ public sealed class BookingsWebApplicationFactory : WebApplicationFactory<Progra
             UserRole requesterRole,
             CancellationToken cancellationToken = default)
         {
-            throw new NotFoundException($"Booking with id {bookingId} was not found.");
+            throw new NotFoundException($"Бронирование с id {bookingId} не найдено.");
         }
 
         public Task CancelBookingAsync(

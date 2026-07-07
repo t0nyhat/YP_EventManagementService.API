@@ -29,7 +29,7 @@ public class BookingTests
         var action = () => Booking.CreatePending(Guid.Empty, Guid.NewGuid());
 
         action.Should().Throw<BusinessValidationException>()
-            .WithMessage("Event id must be specified.");
+            .WithMessage("Идентификатор события должен быть указан.");
     }
 
     [Fact]

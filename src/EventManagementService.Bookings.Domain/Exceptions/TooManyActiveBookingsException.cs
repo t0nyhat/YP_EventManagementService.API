@@ -6,7 +6,7 @@ namespace EventManagementService.Bookings.Domain.Exceptions;
 public sealed class TooManyActiveBookingsException : BusinessValidationException
 {
     public TooManyActiveBookingsException(int limit)
-        : base($"The active booking limit has been exceeded. Maximum allowed: {limit}.")
+        : base($"Превышен лимит активных бронирований. Максимально допустимо: {limit}.")
     {
     }
 }

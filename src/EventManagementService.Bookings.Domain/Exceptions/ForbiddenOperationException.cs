@@ -6,7 +6,7 @@ namespace EventManagementService.Bookings.Domain.Exceptions;
 public sealed class ForbiddenOperationException : BusinessValidationException
 {
     public ForbiddenOperationException()
-        : base("The current user is not allowed to perform this operation.")
+        : base("Недостаточно прав для выполнения операции.")
     {
     }
 }

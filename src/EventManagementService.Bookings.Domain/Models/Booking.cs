@@ -58,12 +58,12 @@ public class Booking
     {
         if (eventId == Guid.Empty)
         {
-            throw new BusinessValidationException("Event id must be specified.");
+            throw new BusinessValidationException("Идентификатор события должен быть указан.");
         }
 
         if (userId == Guid.Empty)
         {
-            throw new BusinessValidationException("User id must be specified.");
+            throw new BusinessValidationException("Идентификатор пользователя должен быть указан.");
         }
 
         return new Booking(
@@ -98,7 +98,7 @@ public class Booking
     {
         if (Status is BookingStatus.Rejected or BookingStatus.Cancelled)
         {
-            throw new BookingAlreadyProcessedException("Cancellation is not available for the current booking status.");
+            throw new BookingAlreadyProcessedException("Отмена недоступна для текущего статуса бронирования.");
         }
 
         Status = BookingStatus.Cancelled;
@@ -109,7 +109,7 @@ public class Booking
     {
         if (Status != BookingStatus.Pending)
         {
-            throw new BookingAlreadyProcessedException("Only pending bookings can be processed.");
+            throw new BookingAlreadyProcessedException("Обрабатывать можно только бронирования в статусе ожидания.");
         }
 
         Status = targetStatus;
