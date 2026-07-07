@@ -29,7 +29,6 @@ public sealed class BookingsWebApplicationFactory : WebApplicationFactory<Progra
         builder.UseSetting("Jwt:Issuer", JwtIssuer);
         builder.UseSetting("Jwt:Audience", JwtAudience);
         builder.UseSetting("Jwt:SigningKey", JwtSigningKey);
-        builder.UseSetting("Jwt:LifetimeMinutes", "60");
         builder.UseSetting("SkipDatabaseMigration", "true");
 
         builder.ConfigureTestServices(services =>

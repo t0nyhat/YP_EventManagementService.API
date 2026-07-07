@@ -83,6 +83,7 @@ public sealed class ExceptionHandlingMiddleware(
             ForbiddenOperationException => (StatusCodes.Status403Forbidden, "Forbidden", ForbiddenType),
             TooManyActiveBookingsException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
             BookingAlreadyProcessedException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
+            ConcurrencyConflictException => (StatusCodes.Status409Conflict, "Conflict", ConflictType),
             BusinessValidationException => (StatusCodes.Status400BadRequest, "Validation error", ValidationType),
             NotFoundException => (StatusCodes.Status404NotFound, "Resource not found", NotFoundType),
             _ => (StatusCodes.Status500InternalServerError, "Internal server error", ServerErrorType)

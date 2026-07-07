@@ -6,7 +6,8 @@ namespace EventManagementService.Bookings.Tests.Contracts;
 
 public class BookingConfirmedSerializationTests
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    // Тот же экземпляр опций, что используют продюсер и подписчик.
+    private static readonly JsonSerializerOptions JsonOptions = KafkaJson.Options;
 
     [Fact]
     public void BookingConfirmed_WhenSerializedWithWebDefaults_UsesCamelCaseAndRoundTrips()

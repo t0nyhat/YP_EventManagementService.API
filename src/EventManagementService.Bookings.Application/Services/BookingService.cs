@@ -11,7 +11,6 @@ namespace EventManagementService.Bookings.Application.Services;
 /// </summary>
 public sealed class BookingService : IBookingService
 {
-    private static readonly SemaphoreSlim BookingLock = new(1, 1);
     private readonly IBookingRepository _bookingRepository;
 
     public BookingService(IBookingRepository bookingRepository)
@@ -24,35 +23,15 @@ public sealed class BookingService : IBookingService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        if (eventId == Guid.Empty)
-        {
-            throw new BusinessValidationException("Идентификатор события должен быть указан.");
-        }
+        // Валидация идентификаторов выполняется доменной фабрикой.
+        var booking = Booking.CreatePending(eventId, userId);
 
-        if (userId == Guid.Empty)
-        {
-            throw new BusinessValidationException("Идентификатор пользователя должен быть указан.");
-        }
+        await _bookingRepository.AddWithActiveLimitAsync(
+            booking,
+            BookingRules.MaxActiveBookingsPerUser,
+            cancellationToken);
 
-        await BookingLock.WaitAsync(cancellationToken);
-        try
-        {
-            var activeBookings = await _bookingRepository.CountActiveByUserAsync(userId, cancellationToken);
-            if (activeBookings >= BookingRules.MaxActiveBookingsPerUser)
-            {
-                throw new TooManyActiveBookingsException(BookingRules.MaxActiveBookingsPerUser);
-            }
-
-            var booking = Booking.CreatePending(eventId, userId);
-            await _bookingRepository.AddAsync(booking, cancellationToken);
-            await _bookingRepository.SaveChangesAsync(cancellationToken);
-
-            return booking;
-        }
-        finally
-        {
-            BookingLock.Release();
-        }
+        return booking;
     }
 
     public async Task<Booking> GetBookingByIdAsync(
@@ -79,8 +58,19 @@ public sealed class BookingService : IBookingService
 
         EnsureAccess(booking, requesterUserId, requesterRole);
 
-        booking.Cancel();
-        await _bookingRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            booking.Cancel();
+            await _bookingRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            // Фоновый обработчик успел подтвердить бронь между нашим чтением и записью.
+            // Отмена из статуса Confirmed допустима, поэтому перечитываем и повторяем один раз.
+            await _bookingRepository.ReloadAsync(booking, cancellationToken);
+            booking.Cancel();
+            await _bookingRepository.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private static void EnsureAccess(Booking booking, Guid requesterUserId, UserRole requesterRole)

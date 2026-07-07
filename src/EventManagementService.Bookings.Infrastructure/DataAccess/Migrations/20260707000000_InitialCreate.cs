@@ -65,6 +65,12 @@ namespace EventManagementService.Bookings.Infrastructure.DataAccess.Migrations
                 column: "event_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_bookings_status",
+                table: "bookings",
+                column: "status",
+                filter: "status = 'Pending'");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_bookings_user_id_status",
                 table: "bookings",
                 columns: new[] { "user_id", "status" });

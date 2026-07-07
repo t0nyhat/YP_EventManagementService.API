@@ -41,6 +41,7 @@ namespace EventManagementService.Bookings.Infrastructure.DataAccess.Migrations
                         .HasColumnName("processed_at");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -53,6 +54,9 @@ namespace EventManagementService.Bookings.Infrastructure.DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EventId");
+
+                    b.HasIndex("Status")
+                        .HasFilter("status = 'Pending'");
 
                     b.HasIndex("UserId", "Status");
 

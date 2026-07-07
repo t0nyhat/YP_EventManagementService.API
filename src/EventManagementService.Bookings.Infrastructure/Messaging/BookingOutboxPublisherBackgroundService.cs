@@ -11,6 +11,8 @@ public sealed class BookingOutboxPublisherBackgroundService : BackgroundService
 {
     private const int BatchSize = 50;
     private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan PurgeInterval = TimeSpan.FromHours(1);
+    private static readonly TimeSpan PublishedRetention = TimeSpan.FromDays(7);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BookingOutboxPublisherBackgroundService> _logger;
@@ -29,12 +31,27 @@ public sealed class BookingOutboxPublisherBackgroundService : BackgroundService
 
         try
         {
+            var nextPurgeAtUtc = DateTimeOffset.UtcNow;
+
             while (!stoppingToken.IsCancellationRequested)
             {
-                using (var scope = _scopeFactory.CreateScope())
+                try
                 {
+                    using var scope = _scopeFactory.CreateScope();
                     var publisher = scope.ServiceProvider.GetRequiredService<BookingOutboxPublisher>();
                     await publisher.PublishPendingBatchAsync(BatchSize, stoppingToken);
+
+                    if (DateTimeOffset.UtcNow >= nextPurgeAtUtc)
+                    {
+                        await publisher.PurgePublishedAsync(PublishedRetention, stoppingToken);
+                        nextPurgeAtUtc = DateTimeOffset.UtcNow.Add(PurgeInterval);
+                    }
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // Транзиентная ошибка (например, недоступна БД) не должна ронять хост:
+                    // необработанное исключение из ExecuteAsync останавливает всё приложение.
+                    _logger.LogError(exception, "Outbox publishing iteration failed. Will retry on next tick.");
                 }
 
                 await Task.Delay(PollingInterval, stoppingToken);

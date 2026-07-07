@@ -2,5 +2,6 @@ namespace EventManagementService.Bookings.Application.Configuration;
 
 public static class BookingRules
 {
-    public const int MaxActiveBookingsPerUser = 3;
+    // Значение унаследовано от монолита (спринт 8), чтобы поведение API не менялось.
+    public const int MaxActiveBookingsPerUser = 10;
 }

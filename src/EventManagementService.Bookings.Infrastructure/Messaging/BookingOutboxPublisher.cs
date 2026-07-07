@@ -41,7 +41,36 @@ public sealed class BookingOutboxPublisher
             await PublishSingleAsync(message, cancellationToken);
         }
 
+        if (messages.Count > 0)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         return messages.Count;
+    }
+
+    /// <summary>
+    /// Deletes published outbox rows older than the retention period
+    /// so the table does not grow without bound.
+    /// </summary>
+    public async Task<int> PurgePublishedAsync(TimeSpan retention, CancellationToken cancellationToken = default)
+    {
+        var cutoffUtc = DateTimeOffset.UtcNow.Subtract(retention);
+
+        if (_context.Database.IsRelational())
+        {
+            return await _context.BookingOutbox
+                .Where(message => message.PublishedAtUtc != null && message.PublishedAtUtc < cutoffUtc)
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+
+        var expired = await _context.BookingOutbox
+            .Where(message => message.PublishedAtUtc != null && message.PublishedAtUtc < cutoffUtc)
+            .ToListAsync(cancellationToken);
+
+        _context.BookingOutbox.RemoveRange(expired);
+        await _context.SaveChangesAsync(cancellationToken);
+        return expired.Count;
     }
 
     private async Task PublishSingleAsync(BookingOutboxMessage message, CancellationToken cancellationToken)
@@ -71,7 +100,5 @@ public sealed class BookingOutboxPublisher
                 message.BookingId,
                 message.PublishAttempts);
         }
-
-        await _context.SaveChangesAsync(cancellationToken);
     }
 }

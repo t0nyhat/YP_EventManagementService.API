@@ -24,11 +24,14 @@ internal sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .HasColumnName("user_id")
             .IsRequired();
 
+        // Concurrency token защищает от гонки «отмена во время подтверждения»:
+        // UPDATE проходит только если статус в БД не изменился с момента чтения.
         builder.Property(booking => booking.Status)
             .HasColumnName("status")
             .IsRequired()
             .HasConversion<string>()
-            .HasMaxLength(20);
+            .HasMaxLength(20)
+            .IsConcurrencyToken();
 
         builder.Property(booking => booking.CreatedAt)
             .HasColumnName("created_at")
@@ -40,5 +43,9 @@ internal sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.HasIndex(booking => booking.EventId);
 
         builder.HasIndex(booking => new { booking.UserId, booking.Status });
+
+        // Частичный индекс под поллинг «висящих» броней фоновым обработчиком.
+        builder.HasIndex(booking => booking.Status)
+            .HasFilter("status = 'Pending'");
     }
 }

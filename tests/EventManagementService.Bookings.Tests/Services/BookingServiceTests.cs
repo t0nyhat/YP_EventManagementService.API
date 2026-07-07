@@ -20,11 +20,11 @@ public class BookingServiceTests
     {
         Booking? savedBooking = null;
         _bookingRepository
-            .Setup(repo => repo.CountActiveByUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
-        _bookingRepository
-            .Setup(repo => repo.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()))
-            .Callback<Booking, CancellationToken>((booking, _) => savedBooking = booking)
+            .Setup(repo => repo.AddWithActiveLimitAsync(
+                It.IsAny<Booking>(),
+                BookingRules.MaxActiveBookingsPerUser,
+                It.IsAny<CancellationToken>()))
+            .Callback<Booking, int, CancellationToken>((booking, _, _) => savedBooking = booking)
             .Returns(Task.CompletedTask);
 
         var eventId = Guid.NewGuid();
@@ -36,7 +36,12 @@ public class BookingServiceTests
         booking.EventId.Should().Be(eventId);
         booking.UserId.Should().Be(userId);
         booking.Status.Should().Be(BookingStatus.Pending);
-        _bookingRepository.Verify(repo => repo.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _bookingRepository.Verify(
+            repo => repo.AddWithActiveLimitAsync(
+                It.IsAny<Booking>(),
+                BookingRules.MaxActiveBookingsPerUser,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -48,15 +53,20 @@ public class BookingServiceTests
             TestContext.Current.CancellationToken);
 
         await action.Should().ThrowAsync<BusinessValidationException>();
-        _bookingRepository.Verify(repo => repo.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()), Times.Never);
+        _bookingRepository.Verify(
+            repo => repo.AddWithActiveLimitAsync(It.IsAny<Booking>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
     public async Task CreateBookingAsync_WhenUserReachedActiveLimit_ThrowsTooManyActiveBookingsException()
     {
         _bookingRepository
-            .Setup(repo => repo.CountActiveByUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BookingRules.MaxActiveBookingsPerUser);
+            .Setup(repo => repo.AddWithActiveLimitAsync(
+                It.IsAny<Booking>(),
+                BookingRules.MaxActiveBookingsPerUser,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TooManyActiveBookingsException(BookingRules.MaxActiveBookingsPerUser));
 
         var action = async () => await CreateService().CreateBookingAsync(
             Guid.NewGuid(),
@@ -64,7 +74,6 @@ public class BookingServiceTests
             TestContext.Current.CancellationToken);
 
         await action.Should().ThrowAsync<TooManyActiveBookingsException>();
-        _bookingRepository.Verify(repo => repo.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using EventManagementService.Bookings.Application.Abstractions.Repositories;
+using EventManagementService.Bookings.Domain.Exceptions;
 using EventManagementService.Bookings.Domain.Models;
 using EventManagementService.Bookings.Infrastructure.DataAccess;
 using Microsoft.EntityFrameworkCore;
@@ -19,14 +20,6 @@ public sealed class BookingRepository : IBookingRepository
         return _context.Bookings.FirstOrDefaultAsync(booking => booking.Id == bookingId, cancellationToken);
     }
 
-    public Task<int> CountActiveByUserAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        return _context.Bookings.CountAsync(
-            booking => booking.UserId == userId
-                && (booking.Status == BookingStatus.Pending || booking.Status == BookingStatus.Confirmed),
-            cancellationToken);
-    }
-
     public async Task<IReadOnlyCollection<Guid>> GetPendingIdsAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Bookings
@@ -37,13 +30,69 @@ public sealed class BookingRepository : IBookingRepository
             .ToArrayAsync(cancellationToken);
     }
 
-    public Task AddAsync(Booking booking, CancellationToken cancellationToken = default)
+    public async Task AddWithActiveLimitAsync(
+        Booking booking,
+        int maxActiveBookingsPerUser,
+        CancellationToken cancellationToken = default)
     {
-        return _context.Bookings.AddAsync(booking, cancellationToken).AsTask();
+        ArgumentNullException.ThrowIfNull(booking);
+
+        if (_context.Database.IsNpgsql())
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            // Advisory-lock сериализует создание броней одного пользователя между
+            // запросами и инстансами сервиса, не блокируя остальных пользователей.
+            // Лок держится до конца транзакции и снимается автоматически.
+            await _context.Database.ExecuteSqlAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({booking.UserId.ToString()}, 0))",
+                cancellationToken);
+
+            await EnforceLimitAndAddAsync(booking, maxActiveBookingsPerUser, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return;
+        }
+
+        // Нереляционный провайдер (InMemory в тестах) не поддерживает транзакции и raw SQL.
+        await EnforceLimitAndAddAsync(booking, maxActiveBookingsPerUser, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    public Task ReloadAsync(Booking booking, CancellationToken cancellationToken = default)
     {
-        return _context.SaveChangesAsync(cancellationToken);
+        ArgumentNullException.ThrowIfNull(booking);
+        return _context.Entry(booking).ReloadAsync(cancellationToken);
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyConflictException(
+                "Бронирование было изменено параллельной операцией.",
+                exception);
+        }
+    }
+
+    private async Task EnforceLimitAndAddAsync(
+        Booking booking,
+        int maxActiveBookingsPerUser,
+        CancellationToken cancellationToken)
+    {
+        var activeBookings = await _context.Bookings.CountAsync(
+            existing => existing.UserId == booking.UserId
+                && (existing.Status == BookingStatus.Pending || existing.Status == BookingStatus.Confirmed),
+            cancellationToken);
+
+        if (activeBookings >= maxActiveBookingsPerUser)
+        {
+            throw new TooManyActiveBookingsException(maxActiveBookingsPerUser);
+        }
+
+        await _context.Bookings.AddAsync(booking, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

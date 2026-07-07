@@ -30,18 +30,27 @@ public sealed class BookingProcessingBackgroundService : BackgroundService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                IReadOnlyCollection<Guid> pendingIds;
-
-                using (var scope = _scopeFactory.CreateScope())
+                try
                 {
-                    var bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
-                    pendingIds = await bookingRepository.GetPendingIdsAsync(stoppingToken);
+                    IReadOnlyCollection<Guid> pendingIds;
+
+                    using (var scope = _scopeFactory.CreateScope())
+                    {
+                        var bookingRepository = scope.ServiceProvider.GetRequiredService<IBookingRepository>();
+                        pendingIds = await bookingRepository.GetPendingIdsAsync(stoppingToken);
+                    }
+
+                    if (pendingIds.Count > 0)
+                    {
+                        var tasks = pendingIds.Select(id => ProcessBookingAsync(id, stoppingToken));
+                        await Task.WhenAll(tasks);
+                    }
                 }
-
-                if (pendingIds.Count > 0)
+                catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    var tasks = pendingIds.Select(id => ProcessBookingAsync(id, stoppingToken));
-                    await Task.WhenAll(tasks);
+                    // Транзиентная ошибка (например, недоступна БД) не должна ронять хост:
+                    // необработанное исключение из ExecuteAsync останавливает всё приложение.
+                    _logger.LogError(exception, "Booking processing polling iteration failed. Will retry on next tick.");
                 }
 
                 await Task.Delay(PollingInterval, stoppingToken);
