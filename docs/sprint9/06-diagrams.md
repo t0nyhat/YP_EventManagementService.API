@@ -82,11 +82,12 @@ flowchart TD
     Seats -- нет --> I3[inbox: NotEnoughSeats] --> Commit1
     Seats -- да --> Dec[available_seats -= seats + inbox: Processed] --> Commit1
 
-    Msg -.ошибка обработки.-> Seek[Seek на тот же offset + пауза 5 с] -.-> Msg
-    Msg -.битый JSON / seats <= 0.-> Bad[лог warning + Commit]
+    Msg -.ошибка обработки, попытка меньше MaxHandlerAttempts.-> Seek[Seek на тот же offset + пауза 5 с] -.-> Msg
+    Msg -.лимит попыток исчерпан.-> DLT1[Dead Letter Topic + Commit]
+    Msg -.битый JSON / seats <= 0.-> DLT2[Dead Letter Topic + Commit, без ретраев]
 ```
 
-Каждая ветка с записью inbox — одна транзакция БД. `Commit` оффсета выполняется только после успешного сохранения, поэтому сбой БД не теряет сообщение — оно будет повторено через `Seek`.
+Каждая ветка с записью inbox — одна транзакция БД. `Commit` оффсета выполняется только после успешного сохранения, поэтому сбой БД не теряет сообщение — оно будет повторено через `Seek`, пока не исчерпается лимит попыток; после этого (или сразу для заведомо невалидных сообщений) — изоляция в Dead Letter Topic (см. [03-messaging-and-consistency.md](03-messaging-and-consistency.md#6-dead-letter-topic)).
 
 ## 4. Гонка «отмена во время подтверждения»
 

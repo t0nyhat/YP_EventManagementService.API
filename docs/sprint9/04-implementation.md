@@ -37,7 +37,7 @@
 
 Порядок hosted-сервисов в [`DependencyInjection`](../../src/EventManagementService.Events.Infrastructure/DependencyInjection.cs) важен: сначала инициализатор топика, затем консюмер.
 
-**[`KafkaTopicInitializer`](../../src/EventManagementService.Events.Infrastructure/Messaging/KafkaTopicInitializer.cs)** — hosted-сервис, который через админ-клиент создаёт `booking-confirmed`, если его нет. Уже существующий топик — не ошибка; недоступный брокер — warning в лог, но **старт сервиса не валится**: топик догонит первый успешный продюсер/ретрай.
+**[`KafkaTopicInitializer`](../../src/EventManagementService.Events.Infrastructure/Messaging/KafkaTopicInitializer.cs)** — hosted-сервис, который через админ-клиент одним вызовом создаёт оба топика, `booking-confirmed` и `booking-confirmed.DLT`, если их нет (per-топик результат `CreateTopicsAsync` разбирается отдельно, поэтому «один уже есть, второй только что создан» — не ошибка). Недоступный брокер — warning в лог, но **старт сервиса не валится**: топик догонит первый успешный продюсер/ретрай.
 
 **[`BookingConfirmedConsumerService`](../../src/EventManagementService.Events.Infrastructure/Messaging/BookingConfirmedConsumerService.cs)** — `BackgroundService` (singleton), внутри цикла:
 
@@ -49,7 +49,7 @@ while (!stoppingToken.IsCancellationRequested)
     var result = _consumer.Consume(stoppingToken);   // блокирующий вызов
     using var scope = _scopeFactory.CreateScope();   // scope на сообщение
     var handler = scope.ServiceProvider.GetRequiredService<IBookingConfirmedHandler>();
-    // десериализация, валидация, HandleAsync, Commit / Seek — см. файл
+    // десериализация, валидация, HandleAsync, Commit / Seek / Dead Letter Topic — см. файл
 }
 ```
 
@@ -59,6 +59,8 @@ while (!stoppingToken.IsCancellationRequested)
 - `BackgroundService` — singleton, а `EventsDbContext` — scoped: на каждое сообщение создаётся собственный scope, из него берётся обработчик.
 
 **`BookingConfirmedHandler`** живёт в Infrastructure (порт `IBookingConfirmedHandler` — в Application) и реализует идемпотентную обработку с inbox — таблица решений в [03-messaging-and-consistency.md](03-messaging-and-consistency.md#4-паттерн-inbox-и-идемпотентность-events).
+
+**[`KafkaDeadLetterPublisher`](../../src/EventManagementService.Events.Infrastructure/Messaging/KafkaDeadLetterPublisher.cs)** — второй singleton-продюсер Events (по той же схеме, что `KafkaBookingConfirmedPublisher` в Bookings: тяжёлый объект, создан один раз, `IDisposable` с `Flush` перед `Dispose`). Консюмер вызывает его в двух случаях: сообщение невалидно в принципе (битый JSON, `Seats <= 0`) — сразу; обработчик стабильно падает — после `Kafka:MaxHandlerAttempts` попыток через `Seek`. Подробности паттерна и формат заголовков — в [03-messaging-and-consistency.md](03-messaging-and-consistency.md#6-dead-letter-topic).
 
 ## 5. Надёжность фоновых циклов
 
@@ -81,6 +83,7 @@ PostgreSQL-колонки `timestamptz` требуют `DateTime` с `Kind = Utc
 | `Jwt__LifetimeMinutes` | только Users (он выпускает токены) |
 | `Kafka__BootstrapServers` | Events и Bookings (`kafka:9092` в compose, `localhost:29092` локально) |
 | `Kafka__ConsumerGroup` | только Events (`events-service`) |
+| `Kafka__MaxHandlerAttempts` | только Events, попыток до Dead Letter Topic (по умолчанию `5`) |
 
 Миграции EF Core применяются на старте каждого сервиса (`Database.Migrate()`); в тестах это отключается настройкой `SkipDatabaseMigration`.
 

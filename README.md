@@ -69,7 +69,8 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
    - Если событие уже началось — логирует warning и записывает inbox с результатом `EventAlreadyStarted`.
    - Если недостаточно мест — логирует warning и записывает inbox с результатом `NotEnoughSeats`.
    - Если всё корректно — уменьшает `available_seats` и сохраняет inbox-строку в одной транзакции.
-   - При неожиданной ошибке (например, недоступна БД) консюмер делает `Seek` на упавший оффсет и повторяет сообщение — подтверждённые брони не теряются.
+   - При неожиданной ошибке (например, недоступна БД) консюмер делает `Seek` на упавший оффсет и повторяет сообщение до `Kafka:MaxHandlerAttempts` раз (по умолчанию 5) — подтверждённые брони не теряются.
+   - Сообщение, которое невозможно обработать в принципе (битый JSON, `Seats <= 0`), а также сообщение, исчерпавшее лимит попыток, публикуется в **Dead Letter Topic** `booking-confirmed.DLT` с исходным payload в `Value` и диагностикой в заголовках (`error-reason`, `error-source-topic/partition/offset`, `error-timestamp`) — партиция не блокируется навсегда одним «отравленным» сообщением.
 
 Опубликованные outbox-строки старше 7 дней периодически удаляются фоновым сервисом; inbox-строки не удаляются — они хранят историю идемпотентности.
 
@@ -250,6 +251,7 @@ dotnet test EventManagementService.API.sln
 | `Jwt__LifetimeMinutes` | Время жизни токена (только Users — он выпускает токены) | `60` |
 | `Kafka__BootstrapServers` | Адрес Kafka-брокера | `kafka:9092` |
 | `Kafka__ConsumerGroup` | Группа потребителей (только Events) | `events-service` |
+| `Kafka__MaxHandlerAttempts` | Попыток обработки перед отправкой в Dead Letter Topic (только Events) | `5` |
 
 ### appsettings.json
 

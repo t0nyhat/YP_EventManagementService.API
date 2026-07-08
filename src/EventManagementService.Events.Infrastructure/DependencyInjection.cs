@@ -32,6 +32,7 @@ public static class DependencyInjection
 
         services.Configure<KafkaOptions>(configuration.GetSection(KafkaOptions.SectionName));
 
+        services.AddSingleton<KafkaDeadLetterPublisher>();
         services.AddSingleton<BookingConfirmedConsumerService>();
         services.AddHostedService<KafkaTopicInitializer>();
         services.AddHostedService(sp => sp.GetRequiredService<BookingConfirmedConsumerService>());

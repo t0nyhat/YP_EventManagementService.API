@@ -134,6 +134,7 @@ services:
       Jwt__SigningKey: replace_with_strong_32_byte_key_1234
       Kafka__BootstrapServers: kafka:9092
       Kafka__ConsumerGroup: events-service
+      Kafka__MaxHandlerAttempts: 5
 
   bookings-api:
     build:

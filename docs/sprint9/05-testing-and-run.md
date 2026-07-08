@@ -2,12 +2,12 @@
 
 ## 1. Структура тестов
 
-Тесты пересобраны по границам сервисов — по проекту на сервис (75 тестов суммарно):
+Тесты пересобраны по границам сервисов — по проекту на сервис (80 тестов суммарно):
 
 ```text
 tests/
-  EventManagementService.Users.Tests/     # 18 тестов
-  EventManagementService.Events.Tests/    # 32 теста
+  EventManagementService.Users.Tests/     # 21 тест
+  EventManagementService.Events.Tests/    # 34 теста
   EventManagementService.Bookings.Tests/  # 25 тестов
 ```
 
@@ -16,6 +16,7 @@ tests/
 ### Users
 
 - `UserServiceTests` — unit (Moq): регистрация обеих ролей, дубликат логина, успешный вход, одинаковый `404` для неверного логина и пароля, claims токена.
+- `AuthControllerTests` — unit (Moq): контроллер парсит `Role` из тела запроса (`Admin`/пусто → `User`/неизвестная роль → `400`) и передаёт её в `IUserService`, а не теряет на уровне DTO.
 - `SecurityPrimitivesTests` — PBKDF2-хеширование и генерация/разбор JWT.
 - `UserRepositoryTests` — **Testcontainers**: реальный PostgreSQL, уникальность нормализованного логина на уровне БД (фикстура [`PostgreSqlTestcontainerFixture`](../../tests/EventManagementService.Users.Tests/Infrastructure/PostgreSqlTestcontainerFixture.cs)).
 
@@ -23,6 +24,7 @@ tests/
 
 - `EventTests` / `EventServiceTests` — доменные правила и CRUD (unit).
 - `BookingConfirmedHandlerTests` — **InMemory EF**: уменьшение мест, идемпотентность дубля, `EventNotFound`, `EventAlreadyStarted`, `NotEnoughSeats`, «места не уходят в минус», roundtrip сообщения через общие `KafkaJson.Options`.
+- `KafkaDeadLetterPublisherTests` — unit (Moq `IProducer`): сообщение уходит в `booking-confirmed.DLT` с оригинальным payload в `Value` и диагностическими заголовками (`error-reason`, `error-source-topic/partition/offset`, `error-timestamp`).
 - `EventsControllerAuthIntegrationTests` — `WebApplicationFactory`: 401 без токена, 403 для роли `User` на `POST/PUT/DELETE /events`, 2xx для `Admin`, анонимное чтение. Hosted-сервисы (консюмер, инициализатор топика) в фабрике удаляются — Kafka для HTTP-тестов не нужна.
 
 ### Bookings
@@ -35,7 +37,7 @@ tests/
 - `BookingConfirmedSerializationTests` — контракт: camelCase-JSON и roundtrip.
 - `BookingsControllerAuthIntegrationTests` — 401 без токена, `202 Accepted` + `Location` при создании брони.
 
-Замечание про уровни: то, что в монолите проверялось одним большим integration-тестом, теперь распадается на unit/InMemory-тесты по сервисам плюс сквозной ручной сценарий — автоматический E2E через реальный Kafka сознательно не строился (для учебного проекта его цена выше пользы).
+Замечание про уровни: то, что в монолите проверялось одним большим integration-тестом, теперь распадается на unit/InMemory-тесты по сервисам плюс сквозной ручной сценарий — автоматический E2E через реальный Kafka сознательно не строился (для учебного проекта его цена выше пользы). По той же причине сам цикл `BookingConfirmedConsumerService` (лимит попыток, `Seek`, переход в Dead Letter Topic) не покрыт unit-тестом — класс напрямую строит `Confluent.Kafka`-клиент в конструкторе, тестируется вручную через живой Kafka (раздел 4); юнит-тестами покрыт только продюсер DLT (`KafkaDeadLetterPublisherTests`) и обработчик (`BookingConfirmedHandlerTests`).
 
 ## 2. Команды
 

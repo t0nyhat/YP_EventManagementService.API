@@ -41,6 +41,12 @@ public sealed class KafkaTopicInitializer : IHostedService
                         Name = KafkaTopics.BookingConfirmed,
                         NumPartitions = 1,
                         ReplicationFactor = 1
+                    },
+                    new TopicSpecification
+                    {
+                        Name = KafkaTopics.BookingConfirmedDeadLetter,
+                        NumPartitions = 1,
+                        ReplicationFactor = 1
                     }
                 ],
                 new CreateTopicsOptions
@@ -48,16 +54,25 @@ public sealed class KafkaTopicInitializer : IHostedService
                     RequestTimeout = TimeSpan.FromSeconds(30)
                 });
 
-            _logger.LogInformation("Kafka topic {Topic} created successfully.", KafkaTopics.BookingConfirmed);
+            _logger.LogInformation(
+                "Kafka topics {Topic} and {DeadLetterTopic} created successfully.",
+                KafkaTopics.BookingConfirmed, KafkaTopics.BookingConfirmedDeadLetter);
         }
-        catch (CreateTopicsException ex) when (ex.Results.Any(r =>
-            r.Error.Code == ErrorCode.TopicAlreadyExists))
+        catch (CreateTopicsException ex) when (ex.Results.All(r =>
+            r.Error.Code == ErrorCode.NoError || r.Error.Code == ErrorCode.TopicAlreadyExists))
         {
-            _logger.LogInformation("Kafka topic {Topic} already exists.", KafkaTopics.BookingConfirmed);
+            // CreateTopicsAsync reports per-topic results: some topics may already exist
+            // while others were just created - both outcomes are fine here.
+            _logger.LogInformation(
+                "Kafka topics ready: {Results}",
+                string.Join(", ", ex.Results.Select(r => $"{r.Topic}={r.Error.Code}")));
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to create Kafka topic {Topic}. Continuing.", KafkaTopics.BookingConfirmed);
+            _logger.LogWarning(
+                ex,
+                "Failed to create Kafka topics {Topic}/{DeadLetterTopic}. Continuing.",
+                KafkaTopics.BookingConfirmed, KafkaTopics.BookingConfirmedDeadLetter);
         }
     }
 

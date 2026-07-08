@@ -17,7 +17,8 @@
 3. **[03-messaging-and-consistency.md](03-messaging-and-consistency.md)** — Обмен сообщениями и согласованность
    - Контракт `BookingConfirmed`, имя топика и общие настройки сериализации
    - Паттерн Outbox в Bookings и паттерн Inbox (идемпотентность) в Events
-   - Гарантии доставки: at-least-once, порядок по ключу, повтор при ошибке
+   - Гарантии доставки: at-least-once, порядок по ключу, повтор при ошибке, лимит попыток
+   - Dead Letter Topic: изоляция невалидных и систематически падающих сообщений
    - Конкурентность: concurrency token на статусе брони и advisory lock на лимите
 
 4. **[04-implementation.md](04-implementation.md)** — Реализация в коде
@@ -63,6 +64,7 @@
 - Появился разделяемый проект `EventManagementService.Contracts`: имя топика, record `BookingConfirmed`, общие настройки JSON-сериализации.
 - Bookings при подтверждении брони **публикует событие в Kafka** через паттерн Outbox; Events **подписан на топик** и уменьшает `available_seats`, обеспечивая идемпотентность через Inbox.
 - Сервисы **не вызывают друг друга по HTTP** — система согласована в конечном счёте (eventual consistency): Bookings не проверяет существование события и места при создании брони.
+- Events изолирует необрабатываемые сообщения в **Dead Letter Topic** (`booking-confirmed.DLT`) после исчерпания лимита попыток — партиция не блокируется навсегда одним «отравленным» сообщением.
 - JWT-токен по-прежнему выдаёт только Users; Events и Bookings проверяют тот же токен (общие секрет, издатель, аудитория).
 - Вся система поднимается одной командой `docker compose up`: Zookeeper, Kafka, три БД, три API с multi-stage Dockerfile.
 
