@@ -37,7 +37,7 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
 Сервисы **не вызывают друг друга напрямую по HTTP**. Единственный канал межсервисного обмена — **Apache Kafka**.
 
 ```text
-┌──────────┐    JWT    ┌──────────┐    JWT    ┌──────────┐
+┌──────────┐    JWT   ┌──────────┐    JWT   ┌──────────┐
 │  Users   │ ◄─────── │  Events  │ ◄─────── │ Bookings │
 │  (auth)  │          │  (CRUD)  │          │ (брони)  │
 └──────────┘          └────┬─────┘          └─────┬────┘
@@ -45,7 +45,7 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
                            │  ┌──────────────┐    │
                            │  │    Kafka     │    │
                            │  │ booking-     │ ◄──┘
-                           └─► │ confirmed   │
+                           └─►│ confirmed    │
                               │ (topic)      │
                               └──────────────┘
 ```

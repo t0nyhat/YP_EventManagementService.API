@@ -87,8 +87,6 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
                     }
                     catch (Exception exception) when (exception is not OperationCanceledException)
                     {
-                        // Позиция консюмера уже сдвинута за это сообщение, поэтому без Seek
-                        // следующий успешный Commit навсегда пропустил бы упавшее сообщение.
                         _logger.LogError(
                             exception,
                             "Failed to handle BookingConfirmed at offset {Offset}. Seeking back to retry.",
