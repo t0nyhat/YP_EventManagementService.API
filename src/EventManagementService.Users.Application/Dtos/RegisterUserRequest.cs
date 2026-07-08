@@ -9,4 +9,6 @@ public class RegisterUserRequest
 
     [Required(ErrorMessage = "Пароль пользователя обязателен")]
     public required string Password { get; set; }
+
+    public string? Role { get; set; }
 }

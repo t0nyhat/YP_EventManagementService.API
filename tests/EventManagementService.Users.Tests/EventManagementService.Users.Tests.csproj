@@ -26,6 +26,7 @@
         <ProjectReference Include="..\..\src\EventManagementService.Users.Domain\EventManagementService.Users.Domain.csproj" />
         <ProjectReference Include="..\..\src\EventManagementService.Users.Application\EventManagementService.Users.Application.csproj" />
         <ProjectReference Include="..\..\src\EventManagementService.Users.Infrastructure\EventManagementService.Users.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\src\EventManagementService.Users.Presentation\EventManagementService.Users.Presentation.csproj" />
     </ItemGroup>
 
 </Project>

@@ -11,7 +11,6 @@ namespace EventManagementService.Users.Infrastructure.Security;
 
 public sealed class JwtTokenGenerator : IJwtTokenGenerator
 {
-    // WriteToken is thread-safe; allocating a handler per request adds unnecessary overhead.
     private static readonly JwtSecurityTokenHandler TokenHandler = new();
 
     private readonly JwtOptions _options;

@@ -1,5 +1,7 @@
 using EventManagementService.Users.Application.Dtos;
 using EventManagementService.Users.Application.Services;
+using EventManagementService.Users.Domain.Exceptions;
+using EventManagementService.Users.Domain.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventManagementService.Users.Presentation.Controllers;
@@ -20,7 +22,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register([FromBody] RegisterUserRequest request)
     {
-        await _userService.RegisterAsync(request.Login, request.Password);
+        await _userService.RegisterAsync(request.Login, request.Password, ParseRole(request.Role));
         return NoContent();
     }
 
@@ -31,5 +33,20 @@ public class AuthController : ControllerBase
     {
         var token = await _userService.LoginAsync(request.Login, request.Password);
         return Ok(new LoginResponse { Token = token });
+    }
+
+    private static UserRole ParseRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            return UserRole.User;
+        }
+
+        if (Enum.TryParse<UserRole>(role, ignoreCase: true, out var parsedRole))
+        {
+            return parsedRole;
+        }
+
+        throw new BusinessValidationException("Недопустимая роль пользователя.");
     }
 }
