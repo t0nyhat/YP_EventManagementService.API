@@ -27,11 +27,13 @@
 
 Конвейер подтверждения:
 
-1. [`BookingProcessingBackgroundService`](../../src/EventManagementService.Bookings.Presentation/BackgroundServices/BookingProcessingBackgroundService.cs) раз в секунду опрашивает `Pending`-брони (частичный индекс `status = 'Pending'`), выдерживает задержку обработки 2 с и для каждой брони создаёт **отдельный DI-scope**;
+1. [`BookingProcessingBackgroundService`](../../src/EventManagementService.Bookings.Infrastructure/BackgroundServices/BookingProcessingBackgroundService.cs) раз в секунду опрашивает `Pending`-брони (частичный индекс `status = 'Pending'`), выдерживает задержку обработки 2 с и для каждой брони создаёт **отдельный DI-scope**;
 2. [`BookingProcessingService`](../../src/EventManagementService.Bookings.Application/Services/BookingProcessingService.cs) перепроверяет статус, вызывает `booking.Confirm()`, сериализует `BookingConfirmed` через `KafkaJson.Options` и сохраняет бронь + outbox-строку одним `SaveChanges`;
 3. конфликт конкурентности (бронь успели отменить) → лог и выход без изменений.
 
 Создание брони: доменная фабрика `Booking.CreatePending` валидирует идентификаторы, лимит активных броней (10, унаследован от монолита) проверяется атомарно в репозитории под advisory-lock'ом — см. [03-messaging-and-consistency.md](03-messaging-and-consistency.md#6-конкурентность-внутри-bookings).
+
+`BookingProcessingBackgroundService` живёт в Infrastructure, а не в Presentation: он напрямую обращается к `IBookingRepository` (порту Application), и по правилам зависимостей этого решения (раздел 2 в [02-architecture.md](02-architecture.md)) такой доступ — задача Infrastructure, а не хоста. Это тот же принцип, что и у [`BookingOutboxPublisherBackgroundService`](../../src/EventManagementService.Bookings.Infrastructure/Messaging/BookingOutboxPublisherBackgroundService.cs) рядом; `Program.cs` в Presentation лишь регистрирует `AddInfrastructureServices` и ничего не знает про конкретные фоновые классы.
 
 ## 4. Events: топик, консюмер, обработчик
 

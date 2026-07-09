@@ -1,7 +1,10 @@
 using EventManagementService.Bookings.Application.Abstractions.Repositories;
 using EventManagementService.Bookings.Application.Abstractions.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-namespace EventManagementService.Bookings.Presentation.BackgroundServices;
+namespace EventManagementService.Bookings.Infrastructure.BackgroundServices;
 
 /// <summary>
 /// Polls pending bookings and asks the application service to confirm them.

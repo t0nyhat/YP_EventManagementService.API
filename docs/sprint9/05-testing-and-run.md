@@ -18,7 +18,7 @@ tests/
 - `UserServiceTests` — unit (Moq): регистрация обеих ролей, дубликат логина, успешный вход, одинаковый `404` для неверного логина и пароля, claims токена.
 - `AuthControllerTests` — unit (Moq): контроллер парсит `Role` из тела запроса (`Admin`/пусто → `User`/неизвестная роль → `400`) и передаёт её в `IUserService`, а не теряет на уровне DTO.
 - `SecurityPrimitivesTests` — PBKDF2-хеширование и генерация/разбор JWT.
-- `UserRepositoryTests` — **Testcontainers**: реальный PostgreSQL, уникальность нормализованного логина на уровне БД (фикстура [`PostgreSqlTestcontainerFixture`](../../tests/EventManagementService.Users.Tests/Infrastructure/PostgreSqlTestcontainerFixture.cs)).
+- `UserRepositoryTests` — **Testcontainers**: реальный PostgreSQL, уникальность нормализованного логина на уровне БД (фикстура [`PostgreSqlTestcontainerFixture`](../../tests/EventManagementService.Users.Tests/Infrastructure/PostgreSqlTestcontainerFixture.cs)). Требует запущенный Docker — помечен `[Trait("Category", "RequiresDocker")]` и исключается флагом `--filter "Category!=RequiresDocker"` (раздел 2) для прогонов без Docker (например, части CI).
 
 ### Events
 
@@ -47,6 +47,9 @@ dotnet build EventManagementService.API.sln
 
 # все тесты (Testcontainers требуют запущенный Docker)
 dotnet test EventManagementService.API.sln
+
+# без Docker: пропускает 3 теста UserRepositoryTests (Testcontainers), остальные 77 проходят
+dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
 
 # полный стек: Zookeeper, Kafka, 3 БД, 3 API
 docker compose up --build -d

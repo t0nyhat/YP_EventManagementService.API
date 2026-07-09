@@ -54,7 +54,7 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
 
 1. Пользователь создаёт бронь через `POST /events/{id}/book` в сервисе **Bookings**.
 2. Бронь сохраняется со статусом `Pending`.
-3. Фоновый сервис [`BookingProcessingBackgroundService`](src/EventManagementService.Bookings.Presentation/BackgroundServices/BookingProcessingBackgroundService.cs) периодически выбирает `Pending`-брони и вызывает [`BookingProcessingService.ProcessPendingBookingAsync`](src/EventManagementService.Bookings.Application/Services/BookingProcessingService.cs).
+3. Фоновый сервис [`BookingProcessingBackgroundService`](src/EventManagementService.Bookings.Infrastructure/BackgroundServices/BookingProcessingBackgroundService.cs) периодически выбирает `Pending`-брони и вызывает [`BookingProcessingService.ProcessPendingBookingAsync`](src/EventManagementService.Bookings.Application/Services/BookingProcessingService.cs).
 4. При подтверждении брони:
    - Статус меняется на `Confirmed`.
    - В таблицу `booking_outbox` сохраняется сообщение `BookingConfirmed`.
@@ -136,7 +136,11 @@ docker compose ps
 dotnet test EventManagementService.API.sln
 ```
 
-Интеграционные тесты поднимают собственные PostgreSQL-контейнеры через Testcontainers.
+Интеграционные тесты поднимают собственные PostgreSQL-контейнеры через Testcontainers. Без запущенного Docker упадут только 3 теста `UserRepositoryTests` (помечены `[Trait("Category", "RequiresDocker")]`); чтобы прогнать остальные:
+
+```bash
+dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
+```
 
 ## Эндпоинты
 

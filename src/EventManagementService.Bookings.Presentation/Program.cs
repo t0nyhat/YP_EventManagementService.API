@@ -2,7 +2,6 @@ using System.Text;
 using EventManagementService.Bookings.Application;
 using EventManagementService.Bookings.Infrastructure;
 using EventManagementService.Bookings.Infrastructure.DataAccess;
-using EventManagementService.Bookings.Presentation.BackgroundServices;
 using EventManagementService.Bookings.Presentation.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -69,7 +68,6 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
-builder.Services.AddHostedService<BookingProcessingBackgroundService>();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtIssuer = jwtSection["Issuer"];

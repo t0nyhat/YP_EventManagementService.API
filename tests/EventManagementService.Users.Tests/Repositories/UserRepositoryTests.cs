@@ -6,7 +6,12 @@ using EventManagementService.Users.Tests.Infrastructure;
 
 namespace EventManagementService.Users.Tests.Repositories;
 
+/// <summary>
+/// Requires a running Docker daemon (Testcontainers spins up a real PostgreSQL instance).
+/// Excluded from Docker-less runs via `dotnet test --filter "Category!=RequiresDocker"`.
+/// </summary>
 [Collection(IntegrationTestCollection.Name)]
+[Trait("Category", "RequiresDocker")]
 public class UserRepositoryTests
 {
     private readonly PostgreSqlTestcontainerFixture _fixture;

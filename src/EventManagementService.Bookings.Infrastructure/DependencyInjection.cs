@@ -1,4 +1,5 @@
 using EventManagementService.Bookings.Application.Abstractions.Repositories;
+using EventManagementService.Bookings.Infrastructure.BackgroundServices;
 using EventManagementService.Bookings.Infrastructure.DataAccess;
 using EventManagementService.Bookings.Infrastructure.Messaging;
 using EventManagementService.Bookings.Infrastructure.Repositories;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.Configure<KafkaOptions>(configuration.GetSection(KafkaOptions.SectionName));
         services.AddSingleton<IBookingConfirmedPublisher, KafkaBookingConfirmedPublisher>();
         services.AddHostedService<BookingOutboxPublisherBackgroundService>();
+        services.AddHostedService<BookingProcessingBackgroundService>();
 
         return services;
     }
