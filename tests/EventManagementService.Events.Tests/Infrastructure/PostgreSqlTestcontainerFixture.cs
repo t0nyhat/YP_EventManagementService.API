@@ -29,7 +29,7 @@ public sealed class PostgreSqlTestcontainerFixture : IAsyncLifetime
     {
         await _container.StartAsync();
 
-        // Apply migrations once at fixture startup.
+        // Применяем миграции один раз при старте фикстуры.
         await using var context = CreateDbContext();
         await context.Database.MigrateAsync();
     }

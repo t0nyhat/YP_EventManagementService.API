@@ -53,7 +53,7 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EventResponse>> GetEventById(Guid id)
     {
-        // The service already returns the response DTO (it may come straight from the cache).
+        // Сервис уже возвращает готовый DTO ответа (он может прийти прямо из кэша).
         return Ok(await eventService.GetEventByIdAsync(id));
     }
 

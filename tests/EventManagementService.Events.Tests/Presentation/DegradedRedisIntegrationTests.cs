@@ -56,8 +56,8 @@ public sealed class DegradedRedisIntegrationTests : IAsyncDisposable
 
         var topEvents = await response.Content.ReadFromJsonAsync<List<EventResponse>>(cancellationToken);
         topEvents.Should().NotBeNull();
-        // Cache read failed (miss), so the ranking comes straight from PostgreSQL:
-        // descending share of sold seats.
+        // Чтение кэша упало (промах), поэтому ранжирование приходит напрямую из PostgreSQL:
+        // по убыванию доли проданных мест.
         topEvents!.Select(eventItem => eventItem.Id).Should().Equal(hot.Id, warm.Id, cold.Id);
         topEvents.Select(eventItem => eventItem.Title).Should().Equal("Hot", "Warm", "Cold");
     }
@@ -72,8 +72,8 @@ public sealed class DegradedRedisIntegrationTests : IAsyncDisposable
         var halfSold = CreateEventWithSales("Half sold", totalSeats: 10, soldSeats: 5);
         await SeedAsync(cancellationToken, halfSold, soldOut);
 
-        // The failed cache write after the first miss must not poison the next request:
-        // every call is a miss, and every call must still be served from PostgreSQL.
+        // Неудачная запись в кэш после первого промаха не должна ломать следующий запрос:
+        // каждый вызов — промах, и каждый вызов всё равно должен обслуживаться из PostgreSQL.
         var firstResponse = await _client.GetAsync("/events/top", cancellationToken);
         var secondResponse = await _client.GetAsync("/events/top", cancellationToken);
 

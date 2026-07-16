@@ -67,10 +67,10 @@ public sealed class EventRepository : IEventRepository
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
 
-        // Ranking is computed entirely in SQL. The cast to double keeps the division
-        // fractional: PostgreSQL int / int truncates (5/10 -> 0) and would break the order.
-        // TotalSeats <= 0 is impossible per the domain invariant, but the conditional
-        // defensively ranks such rows with ratio 0 instead of failing with division by zero.
+        // Ранжирование целиком считается в SQL. Приведение к double сохраняет деление
+        // дробным: в PostgreSQL int / int усекается (5/10 -> 0) и порядок бы сломался.
+        // TotalSeats <= 0 невозможен по доменному инварианту, но условие защитно
+        // даёт таким строкам коэффициент 0 вместо падения с делением на ноль.
         return await _context.Events
             .AsNoTracking()
             .OrderByDescending(eventItem => eventItem.TotalSeats > 0

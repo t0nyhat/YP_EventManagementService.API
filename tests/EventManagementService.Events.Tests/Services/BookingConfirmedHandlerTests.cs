@@ -20,8 +20,8 @@ public class BookingConfirmedHandlerTests : IDisposable
     private readonly DbContextOptions<EventsDbContext> _options;
     private readonly EventsDbContext _context;
 
-    // Loose mock: RemoveAsync returns a completed task by default,
-    // so the handler's await works without explicit setups.
+    // Loose-мок: RemoveAsync по умолчанию возвращает завершённую задачу,
+    // поэтому await в обработчике работает без явных setup'ов.
     private readonly Mock<ICacheService> _cache = new();
 
     private readonly IBookingConfirmedHandler _handler;
@@ -257,7 +257,7 @@ public class BookingConfirmedHandlerTests : IDisposable
 
         result.Should().BeTrue();
 
-        // Deliberately a literal (not EventCacheKeys.ForEvent) to pin the exact key format.
+        // Сознательно литерал (а не EventCacheKeys.ForEvent), чтобы зафиксировать точный формат ключа.
         _cache.Verify(cache => cache.RemoveAsync($"event:{ev.Id:D}", It.IsAny<CancellationToken>()), Times.Once);
         _cache.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         _cache.Verify(cache => cache.RemoveAsync(EventCacheKeys.Top10, It.IsAny<CancellationToken>()), Times.Never);
@@ -277,10 +277,10 @@ public class BookingConfirmedHandlerTests : IDisposable
             Seats: 3,
             ConfirmedAtUtc: DateTimeOffset.UtcNow);
 
-        // At the moment RemoveAsync is called, read the database through a FRESH context
-        // over the same in-memory store: it sees only what SaveChanges has already
-        // persisted, not the handler's tracked (unsaved) state. If the handler
-        // invalidated before committing, the snapshot would still show 100 seats.
+        // В момент вызова RemoveAsync читаем базу через СВЕЖИЙ контекст поверх того же
+        // in-memory хранилища: он видит только то, что SaveChanges уже сохранил,
+        // а не отслеживаемое (несохранённое) состояние обработчика. Если бы обработчик
+        // инвалидировал до коммита, снимок всё ещё показывал бы 100 мест.
         var observations = new List<(int AvailableSeats, bool InboxPersisted)>();
         _cache.Setup(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, CancellationToken>((_, _) =>
@@ -319,16 +319,16 @@ public class BookingConfirmedHandlerTests : IDisposable
             Seats: 3,
             ConfirmedAtUtc: DateTimeOffset.UtcNow);
 
-        // A live (cancellable) token, so passing it through would be observable.
+        // Живой (отменяемый) токен: если бы обработчик пробросил его дальше, это было бы заметно.
         using var cts = new CancellationTokenSource();
 
         var result = await _handler.HandleAsync(message, cts.Token);
 
         result.Should().BeTrue();
 
-        // Post-commit invalidation must run with CancellationToken.None, not the stopping
-        // token: cancelling it after the commit would leave the offset uncommitted and the
-        // redelivery would be skipped as a duplicate without ever removing the stale key.
+        // Пост-коммитная инвалидация должна идти с CancellationToken.None, а не со stopping
+        // token: его отмена после коммита оставила бы offset незакоммиченным, а повторная
+        // доставка была бы пропущена как дубликат, так и не удалив устаревший ключ.
         _cache.Verify(cache => cache.RemoveAsync($"event:{ev.Id:D}", CancellationToken.None), Times.Once);
         _cache.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -347,8 +347,8 @@ public class BookingConfirmedHandlerTests : IDisposable
             Seats: 3,
             ConfirmedAtUtc: DateTimeOffset.UtcNow);
 
-        // Simulate a shutdown arriving exactly while the invalidation is in flight:
-        // the stopping token gets cancelled inside the RemoveAsync call.
+        // Имитируем остановку сервиса ровно в момент выполнения инвалидации:
+        // stopping token отменяется внутри вызова RemoveAsync.
         using var cts = new CancellationTokenSource();
         _cache.Setup(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, CancellationToken>((_, _) => cts.Cancel())
@@ -390,7 +390,7 @@ public class BookingConfirmedHandlerTests : IDisposable
 
         await _handler.HandleAsync(secondMessage, TestCancellationToken);
 
-        // Only the first (processed) call invalidates; the duplicate changes nothing.
+        // Инвалидирует только первый (обработанный) вызов; дубликат ничего не меняет.
         _cache.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 

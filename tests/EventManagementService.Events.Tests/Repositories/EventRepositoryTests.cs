@@ -30,10 +30,10 @@ public class EventRepositoryTests
         var cancellationToken = TestContext.Current.CancellationToken;
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
-        // 50% sold, but only 5 seats sold in absolute numbers.
+        // Продано 50%, но в абсолютных числах всего 5 мест.
         var halfSold = CreateEventWithSales("Half sold", totalSeats: 10, soldSeats: 5);
-        // 40% sold, but 40 seats sold. With integer division both ratios collapse to 0
-        // and the sold-seats tie-breaker would incorrectly put this event first.
+        // Продано 40%, но целых 40 мест. При целочисленном делении оба коэффициента
+        // схлопнулись бы в 0, и tie-breaker по проданным местам ошибочно поставил бы это событие первым.
         var fortyPercentSold = CreateEventWithSales("Forty percent sold", totalSeats: 100, soldSeats: 40);
         await SeedAsync(cancellationToken, fortyPercentSold, halfSold);
 
@@ -58,7 +58,7 @@ public class EventRepositoryTests
         var firstRun = await GetTopEventsAsync(10, cancellationToken);
         var secondRun = await GetTopEventsAsync(10, cancellationToken);
 
-        // Both events are 50% sold; the one with more sold seats wins the tie.
+        // Оба события проданы на 50%; ничью выигрывает то, у которого продано больше мест.
         var expectedOrder = new[] { manySold.Id, fewSold.Id };
         firstRun.Select(eventItem => eventItem.Id).Should().Equal(expectedOrder);
         secondRun.Select(eventItem => eventItem.Id).Should().Equal(expectedOrder);
@@ -89,8 +89,9 @@ public class EventRepositoryTests
         var second = CreateEventWithSales("Twin B", totalSeats: 40, soldSeats: 20);
         await SeedAsync(cancellationToken, first, second);
 
-        // Same ratio, same sold seats, same StartAt: only Id breaks the tie.
-        // .NET Guid ordering matches PostgreSQL uuid ordering (canonical byte sequence).
+        // Одинаковые коэффициент, число проданных мест и StartAt: ничью разбивает только Id.
+        // Порядок сортировки .NET Guid совпадает с порядком PostgreSQL uuid (каноническая
+        // последовательность байтов); для SQL Server это НЕ так — у него свой порядок байтов.
         var expectedOrder = new[] { first.Id, second.Id }.OrderBy(id => id).ToArray();
 
         var firstRun = await GetTopEventsAsync(10, cancellationToken);
@@ -106,7 +107,7 @@ public class EventRepositoryTests
         var cancellationToken = TestContext.Current.CancellationToken;
         await _fixture.ResetDatabaseAsync(cancellationToken);
 
-        // Sold percentage grows with the index: 5%, 10%, ..., 60%.
+        // Процент проданных мест растёт с индексом: 5%, 10%, ..., 60%.
         var events = new List<Event>();
         for (var index = 1; index <= 12; index++)
         {
@@ -122,7 +123,7 @@ public class EventRepositoryTests
         var result = await GetTopEventsAsync(10, cancellationToken);
 
         result.Should().HaveCount(10);
-        // Descending ratio equals the reversed seeding order; the two least sold events are cut off.
+        // Убывание коэффициента — это обратный порядок сидинга; два наименее проданных события отсекаются.
         var expectedIds = events.AsEnumerable().Reverse().Take(10).Select(eventItem => eventItem.Id);
         result.Select(eventItem => eventItem.Id).Should().Equal(expectedIds);
     }

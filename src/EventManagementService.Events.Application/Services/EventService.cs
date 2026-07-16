@@ -65,7 +65,7 @@ public sealed class EventService : IEventService
 
         var response = existingEvent.ToResponse();
 
-        // 404 is never cached: only a found event is written back on a miss.
+        // 404 никогда не кэшируется: при промахе в кэш пишется только найденное событие.
         await _cache.SetAsync(cacheKey, response, _cacheOptions.EventTtl);
 
         return response;
@@ -84,7 +84,7 @@ public sealed class EventService : IEventService
 
         var response = topEvents.Select(EventMappings.ToResponse).ToArray();
 
-        // An empty top is a valid, cacheable result — not a miss.
+        // Пустой топ — валидный кэшируемый результат, а не промах.
         await _cache.SetAsync(EventCacheKeys.Top10, response, _cacheOptions.TopEventsTtl);
 
         return AsReadOnly(response);
@@ -98,8 +98,8 @@ public sealed class EventService : IEventService
         await _repository.AddAsync(newEvent);
         await _repository.SaveChangesAsync();
 
-        // Defensive invalidation: 404 is never cached, so nothing should exist
-        // under a fresh id, but one shared rule for every write path is easier to verify.
+        // Защитная инвалидация: 404 не кэшируется, поэтому под свежим id ничего
+        // лежать не должно, но единое правило для всех путей записи проще проверять.
         await _cache.RemoveAsync(EventCacheKeys.ForEvent(newEvent.Id));
 
         return newEvent;
@@ -114,8 +114,8 @@ public sealed class EventService : IEventService
         existingEvent.Update(request.Title, request.StartAt!.Value, request.EndAt!.Value, request.Description);
         await _repository.SaveChangesAsync();
 
-        // Invalidate strictly after a successful save so the cache can never
-        // outlive data the database rolled back. The top key expires by TTL only.
+        // Инвалидируем строго после успешного сохранения: кэш не должен опережать
+        // базу, если сохранение откатилось. Ключ топа истекает только по TTL.
         await _cache.RemoveAsync(EventCacheKeys.ForEvent(id));
 
         return existingEvent;
@@ -130,8 +130,8 @@ public sealed class EventService : IEventService
         _repository.Remove(existingEvent);
         await _repository.SaveChangesAsync();
 
-        // Invalidate strictly after a successful save so the cache can never
-        // outlive data the database rolled back. The top key expires by TTL only.
+        // Инвалидируем строго после успешного сохранения: кэш не должен опережать
+        // базу, если сохранение откатилось. Ключ топа истекает только по TTL.
         await _cache.RemoveAsync(EventCacheKeys.ForEvent(id));
     }
 

@@ -39,8 +39,8 @@ public sealed class RedisCacheService : ICacheService
         RedisValue payload;
         try
         {
-            // StackExchange.Redis async API takes no CancellationToken,
-            // so WaitAsync lets the caller stop waiting on a stuck call.
+            // Async API StackExchange.Redis не принимает CancellationToken,
+            // поэтому WaitAsync позволяет вызывающему прервать ожидание зависшего вызова.
             payload = await _connection.GetDatabase()
                 .StringGetAsync(key)
                 .WaitAsync(cancellationToken);

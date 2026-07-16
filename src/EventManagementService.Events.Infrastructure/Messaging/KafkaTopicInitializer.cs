@@ -61,8 +61,8 @@ public sealed class KafkaTopicInitializer : IHostedService
         catch (CreateTopicsException ex) when (ex.Results.All(r =>
             r.Error.Code == ErrorCode.NoError || r.Error.Code == ErrorCode.TopicAlreadyExists))
         {
-            // CreateTopicsAsync reports per-topic results: some topics may already exist
-            // while others were just created - both outcomes are fine here.
+            // CreateTopicsAsync возвращает результат по каждому топику: часть может уже
+            // существовать, а часть только что создана — оба исхода здесь допустимы.
             _logger.LogInformation(
                 "Kafka topics ready: {Results}",
                 string.Join(", ", ex.Results.Select(r => $"{r.Topic}={r.Error.Code}")));

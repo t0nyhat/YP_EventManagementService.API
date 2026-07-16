@@ -44,16 +44,16 @@ public sealed class DegradedRedisWebApplicationFactory : WebApplicationFactory<P
         builder.UseSetting("Jwt:Audience", JwtAudience);
         builder.UseSetting("Jwt:SigningKey", JwtSigningKey);
 
-        // Migrations are applied once by PostgreSqlTestcontainerFixture.
+        // Миграции применяются один раз в PostgreSqlTestcontainerFixture.
         builder.UseSetting("SkipDatabaseMigration", "true");
         builder.UseSetting("ConnectionStrings:DefaultConnection", _postgresConnectionString);
         builder.UseSetting("Redis:ConnectionString", DeadRedisConnectionString);
 
         builder.ConfigureTestServices(services =>
         {
-            // Same trimming as EventsWebApplicationFactory, but ONLY this part:
-            // drop the Kafka consumer/topic-initializer hosted services.
-            // IEventService and ICacheService stay production implementations.
+            // Та же обрезка, что в EventsWebApplicationFactory, но ТОЛЬКО эта часть:
+            // убираем hosted services Kafka-консьюмера и инициализатора топиков.
+            // IEventService и ICacheService остаются боевыми реализациями.
             services.RemoveAll<IHostedService>();
         });
     }

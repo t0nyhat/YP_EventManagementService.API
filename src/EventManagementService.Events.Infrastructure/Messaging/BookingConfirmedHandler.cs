@@ -32,7 +32,7 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
 
     public async Task<bool> HandleAsync(BookingConfirmed message, CancellationToken cancellationToken = default)
     {
-        // Check for duplicate
+        // Проверка на дубликат.
         var existing = await _context.BookingConfirmedInbox
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.BookingId == message.BookingId, cancellationToken);
@@ -80,19 +80,19 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
 
         await RecordInboxAsync(message, "Processed", cancellationToken);
 
-        // Invalidate only after RecordInboxAsync has committed the Event+Inbox transaction:
-        // a removed cache entry cannot be restored if the save rolled back, so the cache
-        // must never get ahead of the database. The skipped paths above (duplicate,
-        // EventNotFound, EventAlreadyStarted, NotEnoughSeats) do not invalidate because
-        // the event data was not changed.
+        // Инвалидируем только после того, как RecordInboxAsync закоммитил транзакцию
+        // Event+Inbox: удалённую запись кэша не восстановить, если сохранение
+        // откатилось, поэтому кэш никогда не должен опережать базу. Пропущенные
+        // ветки выше (дубликат, EventNotFound, EventAlreadyStarted, NotEnoughSeats)
+        // не инвалидируют, потому что данные события не менялись.
         //
-        // Deliberately NOT the stopping token: once the commit has happened, the
-        // invalidation must not be abandoned halfway because of a shutdown. If it were
-        // cancelled here, the consumer would exit without committing the offset, the
-        // redelivered message would be skipped as a duplicate (no invalidation on that
-        // path), and the stale cache entry would never be removed. The call is short and
-        // best-effort (the adapter never throws and the Redis timeout is bounded), so
-        // CancellationToken.None is safe.
+        // Сознательно НЕ stopping token: раз коммит уже случился, инвалидацию нельзя
+        // бросать на полпути из-за остановки сервиса. Если бы её здесь отменили,
+        // консьюмер вышел бы, не закоммитив offset, повторно доставленное сообщение
+        // было бы пропущено как дубликат (та ветка не инвалидирует), и устаревшая
+        // запись кэша не удалилась бы никогда. Вызов короткий и best-effort (адаптер
+        // не бросает исключений, таймаут Redis ограничен), поэтому
+        // CancellationToken.None безопасен.
         await _cache.RemoveAsync(EventCacheKeys.ForEvent(message.EventId), CancellationToken.None);
 
         _logger.LogInformation(

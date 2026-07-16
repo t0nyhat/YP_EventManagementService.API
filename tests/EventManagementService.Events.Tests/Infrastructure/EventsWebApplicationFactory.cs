@@ -34,6 +34,9 @@ public class EventsWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
         builder.ConfigureTestServices(services =>
         {
+            // Убираем hosted services (Kafka-консьюмер и инициализатор топиков),
+            // чтобы хост не ждал недоступный брокер; IEventService подменяется
+            // детерминированной заглушкой — эти тесты проверяют HTTP-слой и авторизацию.
             services.RemoveAll<IEventService>();
             services.RemoveAll<IHostedService>();
 

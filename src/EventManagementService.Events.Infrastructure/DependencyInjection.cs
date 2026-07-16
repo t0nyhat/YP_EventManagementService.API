@@ -60,20 +60,20 @@ public static class DependencyInjection
                 "Cache:TopEventsTtl must be greater than zero.")
             .ValidateOnStart();
 
-        // One multiplexer per process: it is thread-safe and manages its own connections.
+        // Один multiplexer на процесс: он потокобезопасен и сам управляет своими соединениями.
         services.AddSingleton<IConnectionMultiplexer>(serviceProvider =>
         {
             var redisOptions = serviceProvider.GetRequiredService<IOptions<RedisOptions>>().Value;
             var configurationOptions = ConfigurationOptions.Parse(redisOptions.ConnectionString);
 
-            // The API must start and serve traffic even when Redis is down:
-            // keep retrying in the background instead of failing the first connect.
+            // API должен стартовать и обслуживать трафик даже при недоступном Redis:
+            // повторяем подключение в фоне, а не падаем на первом коннекте.
             configurationOptions.AbortOnConnectFail = false;
 
             return ConnectionMultiplexer.Connect(configurationOptions);
         });
 
-        // Stateless adapter over the thread-safe multiplexer, so a singleton is safe.
+        // Адаптер без состояния поверх потокобезопасного multiplexer, поэтому singleton безопасен.
         services.AddSingleton<ICacheService, RedisCacheService>();
 
         return services;

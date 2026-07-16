@@ -176,7 +176,7 @@ public class EventsControllerAuthIntegrationTests : IClassFixture<EventsWebAppli
         events.Should().NotBeNull();
         events.Should().HaveCount(2);
 
-        // The order and values come from TestEventService.TopEvents in EventsWebApplicationFactory.
+        // Порядок и значения берутся из TestEventService.TopEvents в EventsWebApplicationFactory.
         var first = events[0];
         first.Id.Should().Be(Guid.Parse("11111111-1111-1111-1111-111111111111"));
         first.Title.Should().Be("Sold out concert");

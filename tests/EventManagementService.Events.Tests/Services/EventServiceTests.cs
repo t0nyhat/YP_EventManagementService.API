@@ -15,16 +15,16 @@ namespace EventManagementService.Events.Tests.Services;
 
 public class EventServiceTests
 {
-    // Deliberately different from the CacheOptions defaults to prove
-    // the service takes TTLs from the injected options, not from constants.
+    // Сознательно отличаются от дефолтов CacheOptions, чтобы доказать,
+    // что сервис берёт TTL из внедрённых опций, а не из констант.
     private static readonly TimeSpan EventTtl = TimeSpan.FromMinutes(7);
     private static readonly TimeSpan TopEventsTtl = TimeSpan.FromSeconds(42);
 
     private readonly Mock<IEventRepository> _repository = new();
 
-    // Loose mock: GetAsync<EventResponse> returns null by default (a cache miss), but for
-    // array payloads Moq's empty default provider returns an EMPTY array — the service would
-    // read that as a valid hit, so top-miss tests arrange the miss explicitly.
+    // Loose-мок: GetAsync<EventResponse> по умолчанию возвращает null (промах кэша), но для
+    // массивов дефолт-провайдер Moq возвращает ПУСТОЙ массив — сервис счёл бы его валидным
+    // хитом, поэтому тесты промаха топа настраивают промах явно.
     private readonly Mock<ICacheService> _cache = new();
 
     private IEventService CreateService() => new EventService(
