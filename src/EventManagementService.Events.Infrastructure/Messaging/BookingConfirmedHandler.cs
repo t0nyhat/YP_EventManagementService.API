@@ -85,7 +85,15 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
         // must never get ahead of the database. The skipped paths above (duplicate,
         // EventNotFound, EventAlreadyStarted, NotEnoughSeats) do not invalidate because
         // the event data was not changed.
-        await _cache.RemoveAsync(EventCacheKeys.ForEvent(message.EventId), cancellationToken);
+        //
+        // Deliberately NOT the stopping token: once the commit has happened, the
+        // invalidation must not be abandoned halfway because of a shutdown. If it were
+        // cancelled here, the consumer would exit without committing the offset, the
+        // redelivered message would be skipped as a duplicate (no invalidation on that
+        // path), and the stale cache entry would never be removed. The call is short and
+        // best-effort (the adapter never throws and the Redis timeout is bounded), so
+        // CancellationToken.None is safe.
+        await _cache.RemoveAsync(EventCacheKeys.ForEvent(message.EventId), CancellationToken.None);
 
         _logger.LogInformation(
             "Successfully processed BookingConfirmed {BookingId}. Decreased available seats for event {EventId} by {Seats}.",

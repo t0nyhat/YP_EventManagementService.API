@@ -306,6 +306,65 @@ public class BookingConfirmedHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task HandleAsync_PassesUncancellableTokenToCacheInvalidation()
+    {
+        var ev = Event.Create("Test", DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(2), 100);
+        _context.Events.Add(ev);
+        await _context.SaveChangesAsync(TestCancellationToken);
+
+        var message = new BookingConfirmed(
+            BookingId: Guid.NewGuid(),
+            EventId: ev.Id,
+            UserId: Guid.NewGuid(),
+            Seats: 3,
+            ConfirmedAtUtc: DateTimeOffset.UtcNow);
+
+        // A live (cancellable) token, so passing it through would be observable.
+        using var cts = new CancellationTokenSource();
+
+        var result = await _handler.HandleAsync(message, cts.Token);
+
+        result.Should().BeTrue();
+
+        // Post-commit invalidation must run with CancellationToken.None, not the stopping
+        // token: cancelling it after the commit would leave the offset uncommitted and the
+        // redelivery would be skipped as a duplicate without ever removing the stale key.
+        _cache.Verify(cache => cache.RemoveAsync($"event:{ev.Id:D}", CancellationToken.None), Times.Once);
+        _cache.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCancellationRequestedDuringInvalidation_StillInvalidatesAndReturnsTrue()
+    {
+        var ev = Event.Create("Test", DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(2), 100);
+        _context.Events.Add(ev);
+        await _context.SaveChangesAsync(TestCancellationToken);
+
+        var message = new BookingConfirmed(
+            BookingId: Guid.NewGuid(),
+            EventId: ev.Id,
+            UserId: Guid.NewGuid(),
+            Seats: 3,
+            ConfirmedAtUtc: DateTimeOffset.UtcNow);
+
+        // Simulate a shutdown arriving exactly while the invalidation is in flight:
+        // the stopping token gets cancelled inside the RemoveAsync call.
+        using var cts = new CancellationTokenSource();
+        _cache.Setup(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((_, _) => cts.Cancel())
+            .Returns(Task.CompletedTask);
+
+        var result = await _handler.HandleAsync(message, cts.Token);
+
+        result.Should().BeTrue();
+
+        var updatedEvent = await FindEventAsync(ev.Id);
+        updatedEvent!.AvailableSeats.Should().Be(97);
+
+        _cache.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenDuplicateBookingId_DoesNotInvalidateCacheAgain()
     {
         var ev = Event.Create("Test", DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(2), 100);
