@@ -60,6 +60,29 @@ public sealed class EventRepository : IEventRepository
         return _context.Events.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<Event>> GetTopEventsAsync(
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+
+        // Ranking is computed entirely in SQL. The cast to double keeps the division
+        // fractional: PostgreSQL int / int truncates (5/10 -> 0) and would break the order.
+        // TotalSeats <= 0 is impossible per the domain invariant, but the conditional
+        // defensively ranks such rows with ratio 0 instead of failing with division by zero.
+        return await _context.Events
+            .AsNoTracking()
+            .OrderByDescending(eventItem => eventItem.TotalSeats > 0
+                ? (double)(eventItem.TotalSeats - eventItem.AvailableSeats) / eventItem.TotalSeats
+                : 0.0)
+            .ThenByDescending(eventItem => eventItem.TotalSeats - eventItem.AvailableSeats)
+            .ThenBy(eventItem => eventItem.StartAt)
+            .ThenBy(eventItem => eventItem.Id)
+            .Take(count)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task AddAsync(Event eventItem, CancellationToken cancellationToken = default)
     {
         return _context.Events.AddAsync(eventItem, cancellationToken).AsTask();
