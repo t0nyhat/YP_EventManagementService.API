@@ -29,6 +29,21 @@ public class EventsController(IEventService eventService) : ControllerBase
     }
 
     /// <summary>
+    /// Retrieves the top events (up to 10) ranked by the share of sold seats.
+    /// </summary>
+    /// <remarks>
+    /// The result is served from a cache, so it may lag behind the actual data
+    /// by up to the configured top-events cache TTL.
+    /// </remarks>
+    /// <returns>The list of top events.</returns>
+    [HttpGet("top")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyCollection<EventResponse>>> GetTopEvents()
+    {
+        return Ok(await eventService.GetTopEventsAsync());
+    }
+
+    /// <summary>
     /// Retrieves an event by id.
     /// </summary>
     /// <param name="id">Event identifier.</param>

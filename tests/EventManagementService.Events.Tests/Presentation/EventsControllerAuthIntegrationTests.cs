@@ -153,6 +153,40 @@ public class EventsControllerAuthIntegrationTests : IClassFixture<EventsWebAppli
         await AssertStatusCodeAsync(response, HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task GetTopEvents_WithoutToken_Returns200()
+    {
+        var response = await _client.GetAsync("/events/top", TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(response, HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetTopEvents_WithoutToken_ReturnsDeterministicTopEvents()
+    {
+        var response = await _client.GetAsync("/events/top", TestContext.Current.CancellationToken);
+
+        await AssertStatusCodeAsync(response, HttpStatusCode.OK);
+
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var events = JsonSerializer.Deserialize<List<EventResponse>>(
+            body,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        events.Should().NotBeNull();
+        events.Should().HaveCount(2);
+
+        // The order and values come from TestEventService.TopEvents in EventsWebApplicationFactory.
+        var first = events[0];
+        first.Id.Should().Be(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        first.Title.Should().Be("Sold out concert");
+        first.TotalSeats.Should().Be(100);
+        first.AvailableSeats.Should().Be(0);
+
+        events[1].Id.Should().Be(Guid.Parse("22222222-2222-2222-2222-222222222222"));
+        events[1].Title.Should().Be("Half full workshop");
+    }
+
     private static StringContent JsonContent<T>(T payload)
     {
         return new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
