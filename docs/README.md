@@ -110,6 +110,28 @@
 - [Тестирование и запуск](sprint8/05-testing-and-run.md)
 - [Диаграммы](sprint8/06-diagrams.md)
 
+### Sprint 9: Микросервисы и Apache Kafka
+
+Папка: [docs/sprint9](sprint9/)
+
+Что покрывает:
+- декомпозиция монолита на три сервиса (Users, Events, Bookings), у каждого своя база PostgreSQL и свои миграции;
+- разделяемый проект контрактов: имя топика, record `BookingConfirmed`, общие настройки сериализации;
+- асинхронный обмен через Kafka: паттерн Outbox в Bookings, паттерн Inbox (идемпотентность) в Events;
+- гарантии доставки at-least-once, ключ сообщения `EventId`, ручное управление оффсетами и `Seek` при ошибке;
+- Dead Letter Topic для сообщений, которые нельзя обработать (лимит попыток или заведомо невалидный payload);
+- конкурентность: concurrency token на статусе брони, advisory lock для лимита броней;
+- проверка общего JWT в трёх сервисах и запуск всей системы через `docker compose up`.
+
+Ключевые материалы:
+- [README sprint9](sprint9/README.md)
+- [Введение](sprint9/01-introduction.md)
+- [Архитектура](sprint9/02-architecture.md)
+- [Обмен сообщениями и согласованность](sprint9/03-messaging-and-consistency.md)
+- [Реализация](sprint9/04-implementation.md)
+- [Тестирование и запуск](sprint9/05-testing-and-run.md)
+- [Диаграммы](sprint9/06-diagrams.md)
+
 ## Рекомендуемый порядок изучения
 
 1. Sprint 1
@@ -120,16 +142,23 @@
 6. Sprint 6
 7. Sprint 7
 8. Sprint 8
+9. Sprint 9
 
 ## Как запускать проект
 
-Из корня репозитория:
+Начиная со спринта 9 проект — три микросервиса; весь стек (Zookeeper, Kafka, три БД, три API) поднимается из корня репозитория одной командой:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
+```
+
+Swagger: Users — `http://localhost:5101/swagger`, Events — `http://localhost:5102/swagger`, Bookings — `http://localhost:5103/swagger`.
+
+Локальная сборка:
+
+```bash
 dotnet restore
 dotnet build
-dotnet run --project src/EventManagementService.Presentation/EventManagementService.Presentation.csproj
 ```
 
 Запуск тестов:
