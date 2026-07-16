@@ -9,8 +9,10 @@ REST API для управления событиями и бронирован�
 | Сервис | Назначение | База данных | Порт (host) |
 |--------|-----------|-------------|-------------|
 | **Users** | Регистрация, вход, хеширование паролей, выдача JWT | `users_db` | `5101` |
-| **Events** | CRUD событий, учёт доступных мест | `events_db` | `5102` |
+| **Events** | CRUD событий, топ-10 событий, учёт доступных мест | `events_db` | `5102` |
 | **Bookings** | Создание и отмена броней, подтверждение через outbox | `bookings_db` | `5103` |
+
+Сервис **Events** дополнительно использует **Redis** как best-effort кеш чтения для `GET /events/{id}` и `GET /events/top` — детали в разделе [«Кеширование (Events)»](#кеширование-events).
 
 Все сервисы построены по принципам **Clean Architecture** с четырьмя слоями:
 
@@ -40,15 +42,17 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
 ┌──────────┐    JWT   ┌──────────┐    JWT   ┌──────────┐
 │  Users   │ ◄─────── │  Events  │ ◄─────── │ Bookings │
 │  (auth)  │          │  (CRUD)  │          │ (брони)  │
-└──────────┘          └────┬─────┘          └─────┬────┘
-                           │                      │
-                           │  ┌──────────────┐    │
-                           │  │    Kafka     │    │
-                           │  │ booking-     │ ◄──┘
-                           └─►│ confirmed    │
+└──────────┘          └─┬──┬─────┘          └─────┬────┘
+                        │  │                      │
+        ┌─────────┐     │  │  ┌──────────────┐    │
+        │  Redis  │ ◄───┘  │  │    Kafka     │    │
+        │  (кеш)  │        │  │ booking-     │ ◄──┘
+        └─────────┘        └─►│ confirmed    │
                               │ (topic)      │
                               └──────────────┘
 ```
+
+Redis — приватная инфраструктура сервиса Events (кеш чтения), а не канал межсервисного обмена.
 
 ### Поток BookingConfirmed
 
@@ -94,6 +98,7 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
 - ASP.NET Core Web API
 - Entity Framework Core + Npgsql
 - Apache Kafka (Confluent.Kafka)
+- Redis 7.2 (StackExchange.Redis) — кеш чтения в сервисе Events
 - JWT Bearer Authentication
 - PostgreSQL 17
 - xUnit v3 + FluentAssertions
@@ -102,7 +107,7 @@ Domain  ←  Application  ←  Infrastructure  ←  Presentation
 ## Требования
 
 1. .NET SDK 10+
-2. Docker (для запуска PostgreSQL, Kafka и сервисов)
+2. Docker (для запуска PostgreSQL, Kafka, Redis и сервисов)
 
 ## Быстрый старт
 
@@ -182,6 +187,7 @@ dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
 | Метод | Путь | Аутентификация | Описание |
 |-------|------|---------------|----------|
 | `GET` | `/events` | Нет | Список событий с фильтрацией и пагинацией |
+| `GET` | `/events/top` | Нет | Топ до 10 событий по доле проданных мест (кеш, до 1 минуты) |
 | `GET` | `/events/{id}` | Нет | Событие по ID |
 | `POST` | `/events` | Admin | Создать событие |
 | `PUT` | `/events/{id}` | Admin | Обновить событие |
@@ -194,6 +200,8 @@ dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
 - `to` — не позже указанной даты.
 - `page` — номер страницы (по умолчанию `1`).
 - `pageSize` — размер страницы (по умолчанию `10`, макс. `100`).
+
+`GET /events/top` возвращает до 10 событий, отсортированных по доле проданных мест — `(totalSeats - availableSeats) / totalSeats`. Рейтинг считается на стороне PostgreSQL с дробным делением; при равных долях порядок детерминирован: больше проданных мест, затем раньше `startAt`, затем меньше `id`. Ответ кешируется на 1 минуту и может отставать от актуальных данных (см. [«Кеширование (Events)»](#кеширование-events)).
 
 Тело `POST /events`:
 
@@ -256,6 +264,9 @@ dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
 | `Kafka__BootstrapServers` | Адрес Kafka-брокера | `kafka:9092` |
 | `Kafka__ConsumerGroup` | Группа потребителей (только Events) | `events-service` |
 | `Kafka__MaxHandlerAttempts` | Попыток обработки перед отправкой в Dead Letter Topic (только Events) | `5` |
+| `Redis__ConnectionString` | Адрес Redis (только Events); пустое значение — ошибка конфигурации, сервис не стартует | `redis:6379` |
+| `Cache__EventTtl` | TTL кеша события `event:{id}` (только Events; в compose не задаётся — действует дефолт из `appsettings.json`) | `00:10:00` |
+| `Cache__TopEventsTtl` | TTL кеша топ-10 `events:top10` (только Events; в compose не задаётся) | `00:01:00` |
 
 ### appsettings.json
 
@@ -357,6 +368,38 @@ docs/
    curl http://localhost:5102/events/{eventId}
    ```
 
+9. Проверить кеш топ-10 в Redis (порт Redis на host не публикуется — доступ только через `docker exec`):
+   ```bash
+   curl http://localhost:5102/events/top
+
+   docker exec eventapi_redis redis-cli KEYS '*'
+   docker exec eventapi_redis redis-cli TTL events:top10
+   docker exec eventapi_redis redis-cli GET events:top10
+   ```
+
+10. Проверить degraded mode — API отвечает и без Redis:
+    ```bash
+    docker compose stop redis
+    curl http://localhost:5102/events/top   # по-прежнему 200, данные из PostgreSQL
+    docker compose start redis
+    ```
+
+11. Проверить инвалидацию `event:{id}` (токен Admin — из шага 3):
+    ```bash
+    # прогреть кеш события
+    curl http://localhost:5102/events/{eventId}
+    docker exec eventapi_redis redis-cli KEYS 'event:*'   # ключ event:{eventId} появился
+
+    # обновить событие — ключ удаляется после успешного сохранения
+    curl -X PUT http://localhost:5102/events/{eventId} \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer <token>" \
+      -d '{"title":"Конференция (обновлено)","description":"Описание","startAt":"2026-07-10T10:00:00","endAt":"2026-07-10T18:00:00"}'
+
+    docker exec eventapi_redis redis-cli KEYS 'event:*'   # ключа больше нет
+    ```
+    `DELETE /events/{id}` инвалидирует ключ так же — после успешного сохранения.
+
 ## Идемпотентность и отказоустойчивость
 
 - **Outbox** в Bookings: сообщение сначала сохраняется в БД, потом публикуется. При сбое Kafka публикация повторяется.
@@ -364,6 +407,48 @@ docs/
 - **Ретраи**: outbox publisher увеличивает счётчик попыток и сохраняет `last_error` при неудаче.
 - **Обработка ошибок Kafka**: bad JSON логируется и пропускается, сервис не падает.
 - **Топик создаётся автоматически** при старте Events через [`KafkaTopicInitializer`](src/EventManagementService.Events.Infrastructure/Messaging/KafkaTopicInitializer.cs).
+- **Деградация кеша** в Events: Redis — best-effort. При недоступном Redis чтение трактуется как промах, запись/удаление — no-op с логированием, API продолжает обслуживать запросы из PostgreSQL (см. [«Кеширование (Events)»](#кеширование-events)).
+
+## Кеширование (Events)
+
+Сервис Events кеширует в Redis два read-пути: `GET /events/{id}` и `GET /events/top`. Кешируется DTO ответа (`EventResponse`), а не доменная сущность; payload — JSON с `JsonSerializerDefaults.Web` (camelCase). Кеш **best-effort**: его недоступность никогда не ломает бизнес-логику (см. «Деградация» ниже).
+
+| Ключ | Payload | TTL | Инвалидация |
+|------|---------|-----|-------------|
+| `event:{id}` (GUID в формате `D`, lowercase) | `EventResponse` (JSON) | 10 мин (`Cache:EventTtl`) | Активная: удаление после каждой успешной записи (CRUD и Kafka); TTL — страховка на случай пропущенной инвалидации |
+| `events:top10` | Массив `EventResponse` (JSON) | 1 мин (`Cache:TopEventsTtl`) | Только по TTL — bounded staleness до 1 минуты |
+
+Форматы ключей задаются в одном месте — [`EventCacheKeys`](src/EventManagementService.Events.Application/Caching/EventCacheKeys.cs).
+
+### Чтение — Cache-Aside
+
+[`EventService`](src/EventManagementService.Events.Application/Services/EventService.cs) сначала спрашивает кеш; при промахе читает PostgreSQL и best-effort записывает результат обратно.
+
+- `404` не кешируется — в кеш попадает только найденное событие.
+- Пустой топ — валидный результат: кешируется как `[]`, а не трактуется как промах.
+- Рейтинг топ-10 считается на стороне PostgreSQL: доля проданных мест `(TotalSeats - AvailableSeats) / TotalSeats` с дробным делением; при равенстве — детерминированные tie-breakers (проданных мест по убыванию, затем `StartAt`, затем `Id`); максимум 10 записей.
+
+### Запись — инвалидация вместо write-through
+
+Все write-пути (`POST`/`PUT`/`DELETE`) работают по одной схеме: **сначала успешный `SaveChanges`, потом удаление `event:{id}`**. Удаление вместо перезаписи выбрано осознанно: оно идемпотентно и не может «опередить» БД — если транзакция откатилась, до удаления дело не доходит и кеш не расходится с базой; write-through при откате оставил бы в кеше данные, которых в БД нет. Следующий читатель просто наполнит кеш заново. Для `POST` инвалидация нового id защитная (под свежим id ничего лежать не должно, т.к. `404` не кешируется), но единое правило для всех write-путей проще проверять. Ключ `events:top10` write-пути не трогают — он истекает только по TTL.
+
+### Инвалидация из Kafka
+
+[`BookingConfirmedHandler`](src/EventManagementService.Events.Infrastructure/Messaging/BookingConfirmedHandler.cs) после успешного commit транзакции Event+Inbox удаляет `event:{eventId}`. Удаление выполняется с `CancellationToken.None`: post-commit инвалидация не должна отменяться при shutdown — иначе переотправленное сообщение было бы пропущено как дубликат (этот путь кеш не трогает), и stale-запись жила бы до конца TTL. Пути «дубликат», `EventNotFound`, `EventAlreadyStarted`, `NotEnoughSeats` кеш не трогают — данные события не менялись.
+
+### Выбор TTL
+
+- **10 минут для `event:{id}`** — ключ активно инвалидируется всеми write-путями, поэтому TTL лишь ограничивает жизнь stale-записи после пропущенной инвалидации.
+- **1 минута для `events:top10`** — топ никем явно не инвалидируется, TTL напрямую задаёт максимальное отставание списка от БД.
+
+### Деградация (Redis недоступен)
+
+- Один `IConnectionMultiplexer` на процесс (singleton) с `AbortOnConnectFail=false` — API стартует и отвечает даже при недоступном Redis, мультиплексор переподключается в фоне.
+- Ошибки кеша в [`RedisCacheService`](src/EventManagementService.Events.Infrastructure/Caching/RedisCacheService.cs) логируются и деградируют: чтение → промах, запись/удаление → no-op; все запросы обслуживаются из PostgreSQL.
+- Повреждённый JSON в кеше — промах + best-effort удаление битой записи.
+- `OperationCanceledException` не маскируется и доходит до вызывающего кода.
+- Пустая `Redis:ConnectionString` — ошибка конфигурации: сервис не стартует (`ValidateOnStart`). Недоступный сервер — штатный degraded mode.
+- Поведение закреплено интеграционными тестами [`DegradedRedisIntegrationTests`](tests/EventManagementService.Events.Tests/Presentation/DegradedRedisIntegrationTests.cs) на production DI-графе сервиса.
 
 ## Миграции EF Core
 
