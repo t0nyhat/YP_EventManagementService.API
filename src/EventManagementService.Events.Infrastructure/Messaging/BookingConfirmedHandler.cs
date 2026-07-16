@@ -1,5 +1,7 @@
 using EventManagementService.Contracts;
+using EventManagementService.Events.Application.Abstractions.Caching;
 using EventManagementService.Events.Application.Abstractions.Messaging;
+using EventManagementService.Events.Application.Caching;
 using EventManagementService.Events.Domain.Models;
 using EventManagementService.Events.Infrastructure.DataAccess;
 using Microsoft.EntityFrameworkCore;
@@ -10,18 +12,22 @@ namespace EventManagementService.Events.Infrastructure.Messaging;
 /// <summary>
 /// Handles BookingConfirmed messages by decreasing available seats.
 /// Uses an inbox table for idempotency.
+/// After a successful commit, invalidates the cached entry of the affected event.
 /// </summary>
 public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
 {
     private readonly EventsDbContext _context;
     private readonly ILogger<BookingConfirmedHandler> _logger;
+    private readonly ICacheService _cache;
 
     public BookingConfirmedHandler(
         EventsDbContext context,
-        ILogger<BookingConfirmedHandler> logger)
+        ILogger<BookingConfirmedHandler> logger,
+        ICacheService cache)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
     }
 
     public async Task<bool> HandleAsync(BookingConfirmed message, CancellationToken cancellationToken = default)
@@ -73,6 +79,13 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
         }
 
         await RecordInboxAsync(message, "Processed", cancellationToken);
+
+        // Invalidate only after RecordInboxAsync has committed the Event+Inbox transaction:
+        // a removed cache entry cannot be restored if the save rolled back, so the cache
+        // must never get ahead of the database. The skipped paths above (duplicate,
+        // EventNotFound, EventAlreadyStarted, NotEnoughSeats) do not invalidate because
+        // the event data was not changed.
+        await _cache.RemoveAsync(EventCacheKeys.ForEvent(message.EventId), cancellationToken);
 
         _logger.LogInformation(
             "Successfully processed BookingConfirmed {BookingId}. Decreased available seats for event {EventId} by {Seats}.",
