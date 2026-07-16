@@ -77,6 +77,33 @@ public class EventsWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
     private sealed class TestEventService : IEventService
     {
+        /// <summary>
+        /// Deterministic top list so integration tests can assert on the payload.
+        /// </summary>
+        private static readonly EventResponse[] TopEvents =
+        [
+            new EventResponse
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                Title = "Sold out concert",
+                Description = "Every seat is taken",
+                StartAt = new DateTime(2026, 8, 1, 18, 0, 0, DateTimeKind.Utc),
+                EndAt = new DateTime(2026, 8, 1, 21, 0, 0, DateTimeKind.Utc),
+                TotalSeats = 100,
+                AvailableSeats = 0
+            },
+            new EventResponse
+            {
+                Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                Title = "Half full workshop",
+                Description = null,
+                StartAt = new DateTime(2026, 9, 10, 10, 0, 0, DateTimeKind.Utc),
+                EndAt = new DateTime(2026, 9, 10, 12, 0, 0, DateTimeKind.Utc),
+                TotalSeats = 50,
+                AvailableSeats = 25
+            }
+        ];
+
         public Task<PaginatedResult<Event>> GetEventsAsync(GetEventsQuery query)
         {
             return Task.FromResult(new PaginatedResult<Event>
@@ -88,9 +115,14 @@ public class EventsWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             });
         }
 
-        public Task<Event> GetEventByIdAsync(Guid id)
+        public Task<EventResponse> GetEventByIdAsync(Guid id)
         {
             throw new NotFoundException($"Событие с id {id} не найдено.");
+        }
+
+        public Task<IReadOnlyCollection<EventResponse>> GetTopEventsAsync()
+        {
+            return Task.FromResult<IReadOnlyCollection<EventResponse>>(TopEvents);
         }
 
         public Task<Event> CreateEventAsync(Event newEvent)

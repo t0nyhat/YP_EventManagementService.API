@@ -1,5 +1,6 @@
 using EventManagementService.Events.Application.Dtos;
 using EventManagementService.Events.Application.Abstractions.Services;
+using EventManagementService.Events.Application.Mappings;
 using EventManagementService.Events.Domain.Models;
 using EventManagementService.Events.Presentation.Mappings;
 using Microsoft.AspNetCore.Authorization;
@@ -37,7 +38,8 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EventResponse>> GetEventById(Guid id)
     {
-        return Ok((await eventService.GetEventByIdAsync(id)).ToResponse());
+        // The service already returns the response DTO (it may come straight from the cache).
+        return Ok(await eventService.GetEventByIdAsync(id));
     }
 
     /// <summary>
