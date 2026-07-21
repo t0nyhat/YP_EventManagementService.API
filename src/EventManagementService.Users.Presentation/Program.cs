@@ -12,6 +12,7 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +32,13 @@ if (!Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var otlpUri) ||
     (otlpUri.Scheme != "http" && otlpUri.Scheme != "https"))
     throw new InvalidOperationException(
         $"Otlp:Endpoint must be an absolute HTTP or HTTPS URI. Current value: '{otlpEndpoint}'.");
+
+// ========== Serilog ==========
+builder.Host.UseSerilog((ctx, cfg) => cfg
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("service.name", otelServiceName)
+    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter()));
 
 // ========== Конвейер OpenTelemetry ==========
 builder.Services.AddOpenTelemetry()
@@ -138,6 +146,7 @@ using (var scope = app.Services.CreateScope())
 
 // ========== HTTP Request Pipeline ==========
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
