@@ -1,5 +1,6 @@
 using EventManagementService.Events.Application.Dtos;
 using EventManagementService.Events.Application.Abstractions.Services;
+using EventManagementService.Events.Application.Mappings;
 using EventManagementService.Events.Domain.Models;
 using EventManagementService.Events.Presentation.Mappings;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,21 @@ public class EventsController(IEventService eventService) : ControllerBase
     }
 
     /// <summary>
+    /// Retrieves the top events (up to 10) ranked by the share of sold seats.
+    /// </summary>
+    /// <remarks>
+    /// The result is served from a cache, so it may lag behind the actual data
+    /// by up to the configured top-events cache TTL.
+    /// </remarks>
+    /// <returns>The list of top events.</returns>
+    [HttpGet("top")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyCollection<EventResponse>>> GetTopEvents()
+    {
+        return Ok(await eventService.GetTopEventsAsync());
+    }
+
+    /// <summary>
     /// Retrieves an event by id.
     /// </summary>
     /// <param name="id">Event identifier.</param>
@@ -37,7 +53,8 @@ public class EventsController(IEventService eventService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EventResponse>> GetEventById(Guid id)
     {
-        return Ok((await eventService.GetEventByIdAsync(id)).ToResponse());
+        // Сервис уже возвращает готовый DTO ответа (он может прийти прямо из кэша).
+        return Ok(await eventService.GetEventByIdAsync(id));
     }
 
     /// <summary>

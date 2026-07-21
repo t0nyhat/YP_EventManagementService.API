@@ -92,6 +92,16 @@ services:
     volumes:
       - bookings_db_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7.2-alpine
+    container_name: eventapi_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   users-api:
     build:
       context: .
@@ -135,6 +145,7 @@ services:
       Kafka__BootstrapServers: kafka:9092
       Kafka__ConsumerGroup: events-service
       Kafka__MaxHandlerAttempts: 5
+      Redis__ConnectionString: redis:6379
 
   bookings-api:
     build:

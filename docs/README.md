@@ -1,6 +1,6 @@
 # EventManagementService.API — Полная учебная документация
 
-Документация показывает эволюцию проекта от базового CRUD до Clean Architecture с PostgreSQL и EF Core.
+Документация показывает эволюцию проекта от базового CRUD до микросервисной Clean Architecture с PostgreSQL, Kafka и Redis.
 
 ## Спринты
 
@@ -132,6 +132,28 @@
 - [Тестирование и запуск](sprint9/05-testing-and-run.md)
 - [Диаграммы](sprint9/06-diagrams.md)
 
+### Sprint 10: Redis и Cache-Aside
+
+Папка: [docs/sprint10](sprint10/)
+
+Что покрывает:
+- Redis как best-effort кеш сервиса Events и singleton-подключение через StackExchange.Redis;
+- Cache-Aside для `GET /events/{id}` и нового публичного `GET /events/top`;
+- расчёт топ-10 по доле проданных мест в PostgreSQL с детерминированным порядком;
+- разные TTL для карточки события и агрегата топа;
+- инвалидация `event:{id}` после CRUD и успешного `BookingConfirmed`, строго после commit БД;
+- безопасная деградация при недоступном Redis и централизованные ключи/JSON-настройки;
+- unit-, Testcontainers- и HTTP integration-тесты кеширования.
+
+Ключевые материалы:
+- [README sprint10](sprint10/README.md)
+- [Введение](sprint10/01-introduction.md)
+- [Архитектура](sprint10/02-architecture.md)
+- [Стратегия кеширования и согласованность](sprint10/03-cache-strategy.md)
+- [Реализация](sprint10/04-implementation.md)
+- [Тестирование и запуск](sprint10/05-testing-and-run.md)
+- [Диаграммы](sprint10/06-diagrams.md)
+
 ## Рекомендуемый порядок изучения
 
 1. Sprint 1
@@ -143,10 +165,11 @@
 7. Sprint 7
 8. Sprint 8
 9. Sprint 9
+10. Sprint 10
 
 ## Как запускать проект
 
-Начиная со спринта 9 проект — три микросервиса; весь стек (Zookeeper, Kafka, три БД, три API) поднимается из корня репозитория одной командой:
+Начиная со спринта 10 весь стек включает три микросервиса, Zookeeper, Kafka, Redis и три PostgreSQL-базы; он поднимается из корня репозитория одной командой:
 
 ```bash
 docker compose up --build -d

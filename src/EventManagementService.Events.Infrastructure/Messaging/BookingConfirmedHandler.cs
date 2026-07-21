@@ -1,5 +1,7 @@
 using EventManagementService.Contracts;
+using EventManagementService.Events.Application.Abstractions.Caching;
 using EventManagementService.Events.Application.Abstractions.Messaging;
+using EventManagementService.Events.Application.Caching;
 using EventManagementService.Events.Domain.Models;
 using EventManagementService.Events.Infrastructure.DataAccess;
 using Microsoft.EntityFrameworkCore;
@@ -10,23 +12,27 @@ namespace EventManagementService.Events.Infrastructure.Messaging;
 /// <summary>
 /// Handles BookingConfirmed messages by decreasing available seats.
 /// Uses an inbox table for idempotency.
+/// After a successful commit, invalidates the cached entry of the affected event.
 /// </summary>
 public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
 {
     private readonly EventsDbContext _context;
     private readonly ILogger<BookingConfirmedHandler> _logger;
+    private readonly ICacheService _cache;
 
     public BookingConfirmedHandler(
         EventsDbContext context,
-        ILogger<BookingConfirmedHandler> logger)
+        ILogger<BookingConfirmedHandler> logger,
+        ICacheService cache)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
     }
 
     public async Task<bool> HandleAsync(BookingConfirmed message, CancellationToken cancellationToken = default)
     {
-        // Check for duplicate
+        // Проверка на дубликат.
         var existing = await _context.BookingConfirmedInbox
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.BookingId == message.BookingId, cancellationToken);
@@ -73,6 +79,21 @@ public sealed class BookingConfirmedHandler : IBookingConfirmedHandler
         }
 
         await RecordInboxAsync(message, "Processed", cancellationToken);
+
+        // Инвалидируем только после того, как RecordInboxAsync закоммитил транзакцию
+        // Event+Inbox: удалённую запись кэша не восстановить, если сохранение
+        // откатилось, поэтому кэш никогда не должен опережать базу. Пропущенные
+        // ветки выше (дубликат, EventNotFound, EventAlreadyStarted, NotEnoughSeats)
+        // не инвалидируют, потому что данные события не менялись.
+        //
+        // Сознательно НЕ stopping token: раз коммит уже случился, инвалидацию нельзя
+        // бросать на полпути из-за остановки сервиса. Если бы её здесь отменили,
+        // консьюмер вышел бы, не закоммитив offset, повторно доставленное сообщение
+        // было бы пропущено как дубликат (та ветка не инвалидирует), и устаревшая
+        // запись кэша не удалилась бы никогда. Вызов короткий и best-effort (адаптер
+        // не бросает исключений, таймаут Redis ограничен), поэтому
+        // CancellationToken.None безопасен.
+        await _cache.RemoveAsync(EventCacheKeys.ForEvent(message.EventId), CancellationToken.None);
 
         _logger.LogInformation(
             "Successfully processed BookingConfirmed {BookingId}. Decreased available seats for event {EventId} by {Seats}.",

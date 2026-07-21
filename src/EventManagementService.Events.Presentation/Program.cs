@@ -11,7 +11,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========== Services Configuration ==========
+// ========== Конфигурация сервисов ==========
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -70,7 +70,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
-// JWT configuration is mandatory — fail fast if missing or incomplete.
+// Конфигурация JWT обязательна — падаем сразу, если она отсутствует или неполная.
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtIssuer = jwtSection["Issuer"];
 var jwtAudience = jwtSection["Audience"];
@@ -109,7 +109,7 @@ if (!builder.Configuration.GetValue<bool>("SkipDatabaseMigration"))
     db.Database.Migrate();
 }
 
-// ========== HTTP Request Pipeline ==========
+// ========== Конвейер обработки HTTP-запросов ==========
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())

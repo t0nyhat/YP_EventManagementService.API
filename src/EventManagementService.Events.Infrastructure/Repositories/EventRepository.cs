@@ -60,6 +60,29 @@ public sealed class EventRepository : IEventRepository
         return _context.Events.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<Event>> GetTopEventsAsync(
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+
+        // Ранжирование целиком считается в SQL. Приведение к double сохраняет деление
+        // дробным: в PostgreSQL int / int усекается (5/10 -> 0) и порядок бы сломался.
+        // TotalSeats <= 0 невозможен по доменному инварианту, но условие защитно
+        // даёт таким строкам коэффициент 0 вместо падения с делением на ноль.
+        return await _context.Events
+            .AsNoTracking()
+            .OrderByDescending(eventItem => eventItem.TotalSeats > 0
+                ? (double)(eventItem.TotalSeats - eventItem.AvailableSeats) / eventItem.TotalSeats
+                : 0.0)
+            .ThenByDescending(eventItem => eventItem.TotalSeats - eventItem.AvailableSeats)
+            .ThenBy(eventItem => eventItem.StartAt)
+            .ThenBy(eventItem => eventItem.Id)
+            .Take(count)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task AddAsync(Event eventItem, CancellationToken cancellationToken = default)
     {
         return _context.Events.AddAsync(eventItem, cancellationToken).AsTask();

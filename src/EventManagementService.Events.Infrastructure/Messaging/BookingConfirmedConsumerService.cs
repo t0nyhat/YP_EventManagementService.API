@@ -20,7 +20,7 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
     private readonly ILogger<BookingConfirmedConsumerService> _logger;
     private readonly KafkaOptions _options;
 
-    // Bounded by currently-failing offsets only: cleared on success or on dead-letter dispatch.
+    // Ограничен только сбоящими сейчас offset'ами: чистится при успехе или отправке в dead letter.
     private readonly Dictionary<TopicPartitionOffset, int> _attemptCounts = new();
 
     public BookingConfirmedConsumerService(
@@ -48,6 +48,8 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
 
+        // Уводим цикл с блокирующим Consume на пул потоков: без Task.Yield
+        // ExecuteAsync работал бы синхронно и StartAsync хоста не завершился бы.
         await Task.Yield();
 
         _consumer.Subscribe(KafkaTopics.BookingConfirmed);
@@ -71,7 +73,7 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
 
                     if (message is null)
                     {
-                        // Malformed payload cannot become valid on retry - isolate it immediately.
+                        // Битый payload не станет валидным при retry — изолируем его сразу.
                         _logger.LogWarning(
                             "Failed to deserialize Kafka message at offset {Offset}. Sending to dead letter topic.",
                             result.Offset);
@@ -103,8 +105,8 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
 
                         if (attempts >= _options.MaxHandlerAttempts)
                         {
-                            // Retries exhausted: a transient failure that persisted this long is
-                            // treated as permanent - isolate the message instead of blocking the partition forever.
+                            // Retry исчерпаны: transient-сбой, продержавшийся так долго, считаем
+                            // постоянным — изолируем сообщение, а не блокируем партицию навсегда.
                             _logger.LogError(
                                 exception,
                                 "Failed to handle BookingConfirmed at offset {Offset} after {Attempts} attempts. Sending to dead letter topic.",
@@ -164,9 +166,9 @@ public sealed class BookingConfirmedConsumerService : BackgroundService
         }
         catch (Exception publishException) when (publishException is not OperationCanceledException)
         {
-            // Publishing to the dead letter topic itself failed (e.g. Kafka is briefly
-            // unreachable): do NOT commit - at-least-once will retry this whole branch
-            // on the next iteration instead of silently losing the message.
+            // Публикация в dead letter топик сама упала (например, Kafka ненадолго
+            // недоступна): НЕ коммитим — at-least-once повторит всю эту ветку на
+            // следующей итерации, вместо того чтобы молча потерять сообщение.
             _logger.LogError(
                 publishException,
                 "Failed to publish message at offset {Offset} to the dead letter topic. Offset will not be committed; will retry.",

@@ -3,6 +3,11 @@ using EventManagementService.Events.Domain.Models;
 
 namespace EventManagementService.Events.Presentation.Mappings;
 
+/// <summary>
+/// Presentation-side input mapping only. Output mapping (Event -&gt; EventResponse)
+/// lives in Application (<c>Application.Mappings.EventMappings</c>) because the
+/// application service caches the response DTO; reuse it instead of duplicating.
+/// </summary>
 public static class EventMappings
 {
     public static Event ToModel(this CreateEventRequest request)
@@ -13,30 +18,5 @@ public static class EventMappings
             request.EndAt!.Value,
             request.TotalSeats!.Value,
             request.Description);
-    }
-
-    public static EventResponse ToResponse(this Event eventItem)
-    {
-        return new EventResponse
-        {
-            Id = eventItem.Id,
-            Title = eventItem.Title,
-            Description = eventItem.Description,
-            StartAt = eventItem.StartAt,
-            EndAt = eventItem.EndAt,
-            TotalSeats = eventItem.TotalSeats,
-            AvailableSeats = eventItem.AvailableSeats
-        };
-    }
-
-    public static PaginatedResult<EventResponse> ToResponse(this PaginatedResult<Event> events)
-    {
-        return new PaginatedResult<EventResponse>
-        {
-            Items = events.Items.Select(ToResponse).ToArray(),
-            Page = events.Page,
-            Count = events.Count,
-            TotalCount = events.TotalCount
-        };
     }
 }

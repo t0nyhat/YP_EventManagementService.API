@@ -18,12 +18,20 @@ public interface IEventService
     Task<PaginatedResult<Event>> GetEventsAsync(GetEventsQuery query);
 
     /// <summary>
-    /// Retrieves an event by its unique identifier.
+    /// Retrieves an event by its unique identifier using the cache-aside pattern:
+    /// a cached response is returned without touching the database.
     /// </summary>
     /// <param name="id">The unique identifier of the event.</param>
-    /// <returns>The event if found.</returns>
-    /// <exception cref="NotFoundException">Thrown when the event does not exist.</exception>
-    Task<Event> GetEventByIdAsync(Guid id);
+    /// <returns>The event response if found.</returns>
+    /// <exception cref="NotFoundException">Thrown when the event does not exist. Never cached.</exception>
+    Task<EventResponse> GetEventByIdAsync(Guid id);
+
+    /// <summary>
+    /// Retrieves the top events ordered by sold-seat ratio using the cache-aside pattern.
+    /// The result is refreshed only by cache expiration, so it may be stale up to the top TTL.
+    /// </summary>
+    /// <returns>At most ten events; an empty collection when there are none.</returns>
+    Task<IReadOnlyCollection<EventResponse>> GetTopEventsAsync();
 
     /// <summary>
     /// Creates a new event.
