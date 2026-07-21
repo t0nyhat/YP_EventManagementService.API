@@ -43,7 +43,8 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(otelServiceName))
     .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation()
+        .AddAspNetCoreInstrumentation(options =>
+            options.Filter = context => !context.Request.Path.StartsWithSegments("/metrics"))
         .AddHttpClientInstrumentation()
         .AddEntityFrameworkCoreInstrumentation()
         .AddOtlpExporter(options =>
@@ -152,8 +153,10 @@ if (!builder.Configuration.GetValue<bool>("SkipDatabaseMigration"))
     db.Database.Migrate();
 }
 
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/metrics"),
+    branch => branch.UseSerilogRequestLogging());
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
