@@ -1,6 +1,6 @@
 # EventManagementService.API — Полная учебная документация
 
-Документация показывает эволюцию проекта от базового CRUD до микросервисной Clean Architecture с PostgreSQL, Kafka и Redis.
+Документация показывает эволюцию проекта от базового CRUD до микросервисной Clean Architecture с PostgreSQL, Kafka, Redis и полноценной наблюдаемостью.
 
 ## Спринты
 
@@ -154,6 +154,30 @@
 - [Тестирование и запуск](sprint10/05-testing-and-run.md)
 - [Диаграммы](sprint10/06-diagrams.md)
 
+### Sprint 11: OpenTelemetry, Prometheus, Jaeger и Grafana
+
+Папка: [docs/sprint11](sprint11/)
+
+Что покрывает:
+- единая конфигурация OpenTelemetry для Users, Events и Bookings;
+- HTTP-, исходящие HTTP- и SQL-спаны с экспортом по OTLP в Jaeger;
+- Prometheus endpoint `/metrics`, HTTP-метрики и runtime-метрики .NET;
+- структурированные JSON-логи Serilog с `service.name`, `TraceId` и `SpanId`;
+- provisioned Grafana datasource и dashboard для трех сервисов;
+- latency p50/p95/p99, throughput, active requests, 4xx/5xx error rate, GC и Thread Pool;
+- исключение `/metrics` из request logs, tracing, HTTP-метрик и HTTPS redirection;
+- воспроизводимая black-box проверка полного Docker Compose стека.
+
+Ключевые материалы:
+- [README sprint11](sprint11/README.md)
+- [Введение](sprint11/01-introduction.md)
+- [Архитектура наблюдаемости](sprint11/02-architecture.md)
+- [Сигналы и дашборд](sprint11/03-signals-and-dashboard.md)
+- [Реализация](sprint11/04-implementation.md)
+- [Тестирование и запуск](sprint11/05-testing-and-run.md)
+- [Диаграммы](sprint11/06-diagrams.md)
+- [Тестовое задание](sprint11/sprint11-task.md)
+
 ## Рекомендуемый порядок изучения
 
 1. Sprint 1
@@ -166,16 +190,19 @@
 8. Sprint 8
 9. Sprint 9
 10. Sprint 10
+11. Sprint 11
 
 ## Как запускать проект
 
-Начиная со спринта 10 весь стек включает три микросервиса, Zookeeper, Kafka, Redis и три PostgreSQL-базы; он поднимается из корня репозитория одной командой:
+Начиная со спринта 11 полный стек включает три микросервиса, Zookeeper, Kafka, Redis, три PostgreSQL-базы, Prometheus, Jaeger и Grafana; он поднимается из корня репозитория одной командой:
 
 ```bash
 docker compose up --build -d
 ```
 
 Swagger: Users — `http://localhost:5101/swagger`, Events — `http://localhost:5102/swagger`, Bookings — `http://localhost:5103/swagger`.
+
+Наблюдаемость: Prometheus — `http://localhost:9090`, Jaeger — `http://localhost:16686`, Grafana — `http://localhost:3000` (`admin` / `admin`).
 
 Локальная сборка:
 
@@ -210,3 +237,10 @@ dotnet test
 - [README sprint7](sprint7/README.md)
 - [Тестовое задание sprint 7](sprint7/sprint7-task.md)
 - [Clean Architecture](sprint7/02-architecture.md)
+
+## Где искать детали по sprint 11
+
+- [README sprint11](sprint11/README.md)
+- [Сигналы и дашборд](sprint11/03-signals-and-dashboard.md)
+- [Тестирование и запуск](sprint11/05-testing-and-run.md)
+- [Тестовое задание sprint 11](sprint11/sprint11-task.md)
