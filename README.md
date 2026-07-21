@@ -104,6 +104,60 @@ Redis — приватная инфраструктура сервиса Events 
 - xUnit v3 + FluentAssertions
 - Testcontainers для интеграционных тестов
 
+## Наблюдаемость (Observability)
+
+Все три микросервиса инструментированы единым стеком OpenTelemetry и Serilog для сбора метрик, трейсов и структурированных логов.
+
+### Три сигнала
+
+| Сигнал | Назначение | Инструмент |
+|--------|-----------|------------|
+| **Метрики** | HTTP latency, throughput, error rate, активные запросы, .NET Runtime (GC, memory) | OpenTelemetry → Prometheus |
+| **Трейсы** | HTTP-запросы, вызовы EF Core/PostgreSQL, исходящие HTTP-вызовы | OpenTelemetry → OTLP → Jaeger |
+| **Логи** | Структурированные JSON-логи с SourceContext, service.name и trace/span ID | Serilog → Compact JSON → stdout |
+
+### Путь данных
+
+```text
+┌─────────────┐     /metrics      ┌────────────┐     PromQL      ┌──────────┐
+│  Users API  │ ────────────────► │ Prometheus │ ◄────────────── │  Grafana │
+│  Events API │ ────────────────► │ :9090      │                 │  :3000   │
+│ Bookings API│ ────────────────► └────────────┘                 │ dashboard│
+└──────┬──────┘                                                  └──────────┘
+       │
+       │ OTLP gRPC :4317
+       ▼
+┌──────────────┐
+│    Jaeger    │
+│   :16686     │
+│  trace UI    │
+└──────────────┘
+
+Все API → stdout → Compact JSON (docker compose logs | jq)
+```
+
+### Состав стека
+
+| Компонент | Образ | Назначение |
+|-----------|-------|------------|
+| Prometheus | `prom/prometheus:v2.51.0` | Хранилище и query-движок метрик |
+| Jaeger | `jaegertracing/all-in-one:1.56` | Приём и визуализация трейсов (OTLP gRPC) |
+| Grafana | `grafana/grafana:10.4.2` | Визуализация метрик через provisioned dashboard |
+
+### Service names
+
+| Сервис | `service.name` в OpenTelemetry |
+|--------|-------------------------------|
+| Users | `users-service` |
+| Events | `events-service` |
+| Bookings | `bookings-service` |
+
+### Известные ограничения
+
+- Kafka-поток между Bookings и Events **не продолжает HTTP trace**: OpenTelemetry Kafka instrumentation не входит в Sprint 11. Трейс обрывается на границе async-публикации outbox.
+- Исходящие HTTP-вызовы между сервисами отсутствуют — `AddHttpClientInstrumentation()` добавлена на перспективу.
+- `/metrics` endpoint публичный (dev-only). В production требуется ограничение сетевыми политиками или reverse proxy.
+
 ## Требования
 
 1. .NET SDK 10+
@@ -135,7 +189,21 @@ docker compose ps
 
 Для защищённых эндпоинтов нажмите `Authorize` и передайте токен в формате `Bearer <jwt>`.
 
-### 3. Запустить тесты
+### 3. Observability — адреса
+
+| Компонент | Адрес с host | Назначение |
+|-----------|-------------|------------|
+| Users metrics | `http://localhost:5101/metrics` | Prometheus text format |
+| Events metrics | `http://localhost:5102/metrics` | Prometheus text format |
+| Bookings metrics | `http://localhost:5103/metrics` | Prometheus text format |
+| Prometheus | `http://localhost:9090` | Query UI и targets |
+| Jaeger | `http://localhost:16686` | Trace search и визуализация |
+| OTLP gRPC | `localhost:4317` | Технический ingest port (внутренний) |
+| Grafana | `http://localhost:3000` | Dashboard (admin/admin, dev-only) |
+
+Grafana dashboard provisioned автоматически: папка **Event Management**, datasource UID `prometheus`.
+
+### 4. Запустить тесты
 
 ```bash
 dotnet test EventManagementService.API.sln
@@ -399,6 +467,55 @@ docs/
     docker exec eventapi_redis redis-cli KEYS 'event:*'   # ключа больше нет
     ```
     `DELETE /events/{id}` инвалидирует ключ так же — после успешного сохранения.
+
+### 12. Smoke-сценарий observability
+
+После запуска полного стека (`docker compose up --build -d`) и генерации бизнес-трафика (шаги 1–8) можно проверить наблюдаемость:
+
+**Метрики каждого API:**
+
+```bash
+curl -fsS http://localhost:5101/metrics | head -20
+curl -fsS http://localhost:5102/metrics | head -20
+curl -fsS http://localhost:5103/metrics | head -20
+```
+
+**Prometheus targets (все три должны быть `UP`):**
+
+```bash
+curl -fsS "http://localhost:9090/api/v1/targets?state=active" | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
+```
+
+**Jaeger service names (после bounded ожидания batch export):**
+
+```bash
+curl -fsS http://localhost:16686/api/services | jq .
+```
+
+**Проверка HTTP и SQL трейсов Events:**
+
+```bash
+curl -fsS "http://localhost:16686/api/traces?service=events-service&limit=5" | jq '.data[].spans[] | {operationName, spanKind, tags: [.tags[] | select(.key == "http.response.status_code" or .key == "db.system")]}'
+```
+
+**JSON-логи (каждая строка должна парситься `jq`):**
+
+```bash
+docker compose logs --no-color --no-log-prefix events-api | tail -5 | jq .
+```
+
+**Grafana health и provisioned datasource:**
+
+```bash
+curl -fsS http://localhost:3000/api/health | jq -e '.database == "ok"'
+curl -fsS -u admin:admin http://localhost:3000/api/datasources/uid/prometheus | jq '.name'
+```
+
+**Проверка отсутствия секретов в логах (пароль из smoke-запроса не должен появляться):**
+
+```bash
+docker compose logs --no-color --no-log-prefix users-api | grep -c "missing-password" || echo "PASS: no secrets in logs"
+```
 
 ## Идемпотентность и отказоустойчивость
 
