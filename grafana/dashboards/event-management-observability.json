@@ -17,6 +17,10 @@
     {
       "title": "Latency p50",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -25,6 +29,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "p50",
           "refId": "A"
@@ -43,6 +51,10 @@
     {
       "title": "Latency p95",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -51,6 +63,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "p95",
           "refId": "A"
@@ -69,6 +85,10 @@
     {
       "title": "Latency p99",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -77,6 +97,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
           "legendFormat": "p99",
           "refId": "A"
@@ -95,6 +119,10 @@
     {
       "title": "Throughput",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -103,6 +131,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum(rate(http_server_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "requests/s",
           "refId": "A"
@@ -121,6 +153,10 @@
     {
       "title": "Active Requests",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -129,6 +165,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum(http_server_active_requests{job=~\"$service\"})",
           "legendFormat": "active",
           "refId": "A"
@@ -147,6 +187,10 @@
     {
       "title": "Server Error Rate (5xx)",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -155,6 +199,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(100 * sum(rate(http_server_request_duration_seconds_count{job=~\"$service\", http_response_status_code=~\"5..\"}[$__rate_interval])) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval])), 0.000001)) or vector(0)",
           "legendFormat": "5xx %",
           "refId": "A"
@@ -174,6 +222,10 @@
     {
       "title": "Client Error Rate (4xx)",
       "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -182,6 +234,10 @@
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(100 * sum(rate(http_server_request_duration_seconds_count{job=~\"$service\", http_response_status_code=~\"4..\"}[$__rate_interval])) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval])), 0.000001)) or vector(0)",
           "legendFormat": "4xx %",
           "refId": "A"
@@ -204,6 +260,10 @@
       {
         "name": "service",
         "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "query": "label_values(up, job)",
         "refresh": 1,
         "includeAll": true,
