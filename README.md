@@ -277,8 +277,8 @@ dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
 {
   "title": "Конференция .NET",
   "description": "Технологическое мероприятие",
-  "startAt": "2026-07-10T10:00:00",
-  "endAt": "2026-07-10T18:00:00",
+  "startAt": "2099-07-10T10:00:00Z",
+  "endAt": "2099-07-10T18:00:00Z",
   "totalSeats": 50
 }
 ```
@@ -414,7 +414,7 @@ docs/
    curl -X POST http://localhost:5102/events \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer <token>" \
-     -d '{"title":"Конференция","description":"Описание","startAt":"2026-07-10T10:00:00","endAt":"2026-07-10T18:00:00","totalSeats":3}'
+     -d '{"title":"Конференция","description":"Описание","startAt":"2099-07-10T10:00:00Z","endAt":"2099-07-10T18:00:00Z","totalSeats":3}'
    ```
 
 5. Зарегистрировать обычного пользователя и получить токен.
@@ -462,7 +462,7 @@ docs/
     curl -X PUT http://localhost:5102/events/{eventId} \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer <token>" \
-      -d '{"title":"Конференция (обновлено)","description":"Описание","startAt":"2026-07-10T10:00:00","endAt":"2026-07-10T18:00:00"}'
+      -d '{"title":"Конференция (обновлено)","description":"Описание","startAt":"2099-07-10T10:00:00Z","endAt":"2099-07-10T18:00:00Z"}'
 
     docker exec eventapi_redis redis-cli KEYS 'event:*'   # ключа больше нет
     ```
@@ -492,29 +492,82 @@ curl -fsS "http://localhost:9090/api/v1/targets?state=active" | jq '.data.active
 curl -fsS http://localhost:16686/api/services | jq .
 ```
 
-**Проверка HTTP и SQL трейсов Events:**
+**Проверка связных HTTP- и SQL-трейсов всех API:**
 
 ```bash
-curl -fsS "http://localhost:16686/api/traces?service=events-service&limit=5" | jq '.data[].spans[] | {operationName, spanKind, tags: [.tags[] | select(.key == "http.response.status_code" or .key == "db.system")]}'
+trace_cases=(
+  'users-service|POST auth/login'
+  'events-service|GET events/{id:guid}'
+  'bookings-service|GET bookings/{id:guid}'
+)
+
+for trace_case in "${trace_cases[@]}"; do
+  service=${trace_case%%|*}
+  operation=${trace_case#*|}
+  curl -fsS -G http://localhost:16686/api/traces \
+    --data-urlencode "service=${service}" \
+    --data-urlencode "operation=${operation}" \
+    --data-urlencode 'limit=100' \
+    --data-urlencode 'lookback=1h' |
+    jq -e '
+      [.data[] | select(
+        any(.spans[]; any(.tags[]?; .key == "http.request.method" or .key == "http.method")) and
+        any(.spans[]; any(.tags[]?; .key == "db.system"))
+      )] | length > 0
+    ' >/dev/null && echo "${service}: HTTP + SQL trace OK"
+done
 ```
 
 **JSON-логи (каждая строка должна парситься `jq`):**
 
 ```bash
-docker compose logs --no-color --no-log-prefix events-api | tail -5 | jq .
+for service in users-api events-api bookings-api; do
+  docker compose logs --no-color --no-log-prefix "$service" |
+    sed '/^[[:space:]]*$/d' |
+    jq -e . >/dev/null && echo "${service}: JSON logs OK"
+done
 ```
 
-**Grafana health и provisioned datasource:**
+**Grafana health, provisioned datasource и dashboard:**
 
 ```bash
 curl -fsS http://localhost:3000/api/health | jq -e '.database == "ok"'
-curl -fsS -u admin:admin http://localhost:3000/api/datasources/uid/prometheus | jq '.name'
+curl -fsS -u admin:admin http://localhost:3000/api/datasources/uid/prometheus |
+  jq -e '.uid == "prometheus" and .url == "http://prometheus:9090" and .isDefault == true'
+curl -fsS -u admin:admin http://localhost:3000/api/dashboards/uid/event-management-observability |
+  jq -e '
+    .dashboard.uid == "event-management-observability" and
+    (.dashboard.panels | length == 7) and
+    all(.dashboard.panels[]; .datasource.uid == "prometheus")
+  '
 ```
 
-**Проверка отсутствия секретов в логах (пароль из smoke-запроса не должен появляться):**
+**Проверка данных всех панелей через Prometheus API:**
 
 ```bash
-docker compose logs --no-color --no-log-prefix users-api | grep -c "missing-password" || echo "PASS: no secrets in logs"
+jq -r '
+  .panels[] | .title as $title | .targets[]? |
+  [$title, (.expr | gsub("\\$service"; "events-service") | gsub("\\$__rate_interval"; "1m"))] |
+  @tsv
+' grafana/dashboards/event-management-observability.json |
+while IFS="$(printf '\t')" read -r title query; do
+  curl -fsS -G http://localhost:9090/api/v1/query \
+    --data-urlencode "query=${query}" |
+    jq -e '.status == "success" and (.data.result | length > 0)' >/dev/null &&
+    echo "${title}: data OK"
+done
+```
+
+**Проверка отсутствия секретов в логах:**
+
+```bash
+if docker compose logs --no-color --no-log-prefix users-api events-api bookings-api |
+  grep -Eq 'admin123|replace_with_strong_32_byte_key_1234|Authorization:[[:space:]]*Bearer'; then
+  echo 'FAIL: secret found in logs'
+  exit 1
+else
+  echo 'PASS: no secrets in logs'
+fi
 ```
 
 ### Troubleshooting observability
@@ -525,7 +578,8 @@ docker compose logs --no-color --no-log-prefix users-api | grep -c "missing-pass
 | Prometheus target `DOWN` | Неправильное DNS-имя или порт в `prometheus.yml` | Проверить `targets` — должны быть `users-api:8080`, `events-api:8080`, `bookings-api:8080` |
 | Jaeger не показывает сервисы | OTLP exporter не может подключиться | Проверить `Otlp__Endpoint=http://jaeger:4317` в окружении API; Jaeger должен быть запущен |
 | Пустые панели в Grafana | Нет данных в Prometheus или неверный job selector | Сгенерировать HTTP-трафик и проверить PromQL через `http://localhost:9090/api/v1/query` |
-| Grafana запрашивает datasource вручную | Provisioning не сработал из-за старого volume | Удалить `grafana_data` volume: `docker compose stop grafana && docker compose rm -f grafana && docker volume rm eventmanagementserviceapi_grafana_data && docker compose up -d grafana` |
+| Grafana запрашивает datasource вручную | Provisioning не перечитан после изменения файлов | Выполнить `docker compose up -d --force-recreate grafana`, проверить `docker compose logs grafana` и datasource API из smoke-сценария |
+| `admin/admin` не принимается после повторного запуска | В существующем Grafana volume уже сохранён другой пароль | Для локального dev-стека выполнить `docker compose exec -T grafana grafana cli admin reset-admin-password admin` |
 | JSON-логи не парсятся `jq` | Serilog не настроен или используется стандартный console formatter | Проверить `UseSerilog()` и `CompactJsonFormatter` в `Program.cs` |
 | Задержка появления трейсов в Jaeger | OTLP exporter работает в batch-режиме | Подождать до 10 секунд после генерации трафика |
 | Порт `3000`, `4317`, `9090` или `16686` занят | Другой процесс использует тот же порт | Остановить конфликтующий процесс или изменить host-порт в `docker-compose.yml` |
