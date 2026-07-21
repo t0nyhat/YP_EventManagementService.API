@@ -112,7 +112,7 @@ Redis — приватная инфраструктура сервиса Events 
 
 | Сигнал | Назначение | Инструмент |
 |--------|-----------|------------|
-| **Метрики** | HTTP latency, throughput, error rate, активные запросы, .NET Runtime (GC, memory) | OpenTelemetry → Prometheus |
+| **Метрики** | HTTP latency, throughput, error rate, активные запросы, .NET Runtime (GC, thread pool) | OpenTelemetry → Prometheus |
 | **Трейсы** | HTTP-запросы, вызовы EF Core/PostgreSQL, исходящие HTTP-вызовы | OpenTelemetry → OTLP → Jaeger |
 | **Логи** | Структурированные JSON-логи с SourceContext, service.name и trace/span ID | Serilog → Compact JSON → stdout |
 
@@ -537,7 +537,7 @@ curl -fsS -u admin:admin http://localhost:3000/api/datasources/uid/prometheus |
 curl -fsS -u admin:admin http://localhost:3000/api/dashboards/uid/event-management-observability |
   jq -e '
     .dashboard.uid == "event-management-observability" and
-    (.dashboard.panels | length == 7) and
+    (.dashboard.panels | length == 9) and
     all(.dashboard.panels[]; .datasource.uid == "prometheus")
   '
 ```
@@ -591,7 +591,7 @@ fi
 | [`prometheus.yml`](prometheus.yml) | Конфигурация Prometheus: scrape targets для трёх сервисов |
 | [`grafana/provisioning/datasources/prometheus.yml`](grafana/provisioning/datasources/prometheus.yml) | Datasource provisioning: Prometheus → Grafana |
 | [`grafana/provisioning/dashboards/dashboards.yml`](grafana/provisioning/dashboards/dashboards.yml) | Dashboard provider provisioning |
-| [`grafana/dashboards/event-management-observability.json`](grafana/dashboards/event-management-observability.json) | Dashboard JSON с панелями latency, throughput, error rate |
+| [`grafana/dashboards/event-management-observability.json`](grafana/dashboards/event-management-observability.json) | Dashboard JSON с панелями latency, throughput, error rate, GC и thread pool |
 
 ## Идемпотентность и отказоустойчивость
 
