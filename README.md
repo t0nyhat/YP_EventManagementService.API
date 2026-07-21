@@ -517,6 +517,28 @@ curl -fsS -u admin:admin http://localhost:3000/api/datasources/uid/prometheus | 
 docker compose logs --no-color --no-log-prefix users-api | grep -c "missing-password" || echo "PASS: no secrets in logs"
 ```
 
+### Troubleshooting observability
+
+| Проблема | Вероятная причина | Решение |
+|----------|-------------------|---------|
+| `/metrics` возвращает `404` | OpenTelemetry Prometheus exporter не зарегистрирован | Проверить `MapPrometheusScrapingEndpoint()` в `Program.cs` |
+| Prometheus target `DOWN` | Неправильное DNS-имя или порт в `prometheus.yml` | Проверить `targets` — должны быть `users-api:8080`, `events-api:8080`, `bookings-api:8080` |
+| Jaeger не показывает сервисы | OTLP exporter не может подключиться | Проверить `Otlp__Endpoint=http://jaeger:4317` в окружении API; Jaeger должен быть запущен |
+| Пустые панели в Grafana | Нет данных в Prometheus или неверный job selector | Сгенерировать HTTP-трафик и проверить PromQL через `http://localhost:9090/api/v1/query` |
+| Grafana запрашивает datasource вручную | Provisioning не сработал из-за старого volume | Удалить `grafana_data` volume: `docker compose stop grafana && docker compose rm -f grafana && docker volume rm eventmanagementserviceapi_grafana_data && docker compose up -d grafana` |
+| JSON-логи не парсятся `jq` | Serilog не настроен или используется стандартный console formatter | Проверить `UseSerilog()` и `CompactJsonFormatter` в `Program.cs` |
+| Задержка появления трейсов в Jaeger | OTLP exporter работает в batch-режиме | Подождать до 10 секунд после генерации трафика |
+| Порт `3000`, `4317`, `9090` или `16686` занят | Другой процесс использует тот же порт | Остановить конфликтующий процесс или изменить host-порт в `docker-compose.yml` |
+
+### Конфигурационные файлы observability
+
+| Файл | Назначение |
+|------|-----------|
+| [`prometheus.yml`](prometheus.yml) | Конфигурация Prometheus: scrape targets для трёх сервисов |
+| [`grafana/provisioning/datasources/prometheus.yml`](grafana/provisioning/datasources/prometheus.yml) | Datasource provisioning: Prometheus → Grafana |
+| [`grafana/provisioning/dashboards/dashboards.yml`](grafana/provisioning/dashboards/dashboards.yml) | Dashboard provider provisioning |
+| [`grafana/dashboards/event-management-observability.json`](grafana/dashboards/event-management-observability.json) | Dashboard JSON с панелями latency, throughput, error rate |
+
 ## Идемпотентность и отказоустойчивость
 
 - **Outbox** в Bookings: сообщение сначала сохраняется в БД, потом публикуется. При сбое Kafka публикация повторяется.
