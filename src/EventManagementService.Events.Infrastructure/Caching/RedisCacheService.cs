@@ -14,12 +14,6 @@ namespace EventManagementService.Events.Infrastructure.Caching;
 /// </summary>
 public sealed class RedisCacheService : ICacheService
 {
-    /// <summary>
-    /// Single serializer configuration for every cache payload,
-    /// so producers and consumers always agree on the JSON shape.
-    /// </summary>
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
-
     private readonly IConnectionMultiplexer _connection;
     private readonly ILogger<RedisCacheService> _logger;
 
@@ -62,7 +56,7 @@ public sealed class RedisCacheService : ICacheService
 
         try
         {
-            var value = JsonSerializer.Deserialize<T>(payload.ToString(), SerializerOptions);
+            var value = JsonSerializer.Deserialize<T>(payload.ToString(), CacheJson.Options);
             if (value is null)
             {
                 _logger.LogDebug("Cache entry for key {CacheKey} deserialized to null. Treating as a cache miss.", key);
@@ -97,7 +91,7 @@ public sealed class RedisCacheService : ICacheService
 
         try
         {
-            var payload = JsonSerializer.Serialize(value, SerializerOptions);
+            var payload = JsonSerializer.Serialize(value, CacheJson.Options);
             await _connection.GetDatabase()
                 .StringSetAsync(key, payload, timeToLive, When.Always, CommandFlags.None)
                 .WaitAsync(cancellationToken);

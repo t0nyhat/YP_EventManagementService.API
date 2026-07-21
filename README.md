@@ -141,7 +141,7 @@ docker compose ps
 dotnet test EventManagementService.API.sln
 ```
 
-Интеграционные тесты поднимают собственные PostgreSQL-контейнеры через Testcontainers. Без запущенного Docker упадут только 3 теста `UserRepositoryTests` (помечены `[Trait("Category", "RequiresDocker")]`); чтобы прогнать остальные:
+Полный прогон включает интеграционные тесты Events и Users: они поднимают PostgreSQL через Testcontainers и требуют запущенный Docker. Чтобы без Docker запустить unit-тесты и остальные тесты, исключите сценарии с `[Trait("Category", "RequiresDocker")]`:
 
 ```bash
 dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
@@ -411,7 +411,7 @@ docs/
 
 ## Кеширование (Events)
 
-Сервис Events кеширует в Redis два read-пути: `GET /events/{id}` и `GET /events/top`. Кешируется DTO ответа (`EventResponse`), а не доменная сущность; payload — JSON с `JsonSerializerDefaults.Web` (camelCase). Кеш **best-effort**: его недоступность никогда не ломает бизнес-логику (см. «Деградация» ниже).
+Сервис Events кеширует в Redis два read-пути: `GET /events/{id}` и `GET /events/top`. Кешируется DTO ответа (`EventResponse`), а не доменная сущность; payload — JSON с централизованными настройками `CacheJson.Options` на основе `JsonSerializerDefaults.Web` (camelCase). Если контракт ответа изменится между версиями API, формат сериализации кеша настраивается в одном месте. Кеш **best-effort**: его недоступность никогда не ломает бизнес-логику (см. «Деградация» ниже).
 
 | Ключ | Payload | TTL | Инвалидация |
 |------|---------|-----|-------------|
