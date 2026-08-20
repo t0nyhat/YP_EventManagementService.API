@@ -14,6 +14,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.17.0-beta.1" />
+        <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.17.0-beta.1" />
+        <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+        <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\EventManagementService.Bookings.Application\EventManagementService.Bookings.Application.csproj" />
         <ProjectReference Include="..\EventManagementService.Bookings.Infrastructure\EventManagementService.Bookings.Infrastructure.csproj" />
     </ItemGroup>

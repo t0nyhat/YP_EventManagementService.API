@@ -8,8 +8,54 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ========== Валидация OpenTelemetry ==========
+var otelServiceName = builder.Configuration["OpenTelemetry:ServiceName"];
+if (string.IsNullOrWhiteSpace(otelServiceName))
+    throw new InvalidOperationException(
+        "OpenTelemetry:ServiceName is not configured. Set it in appsettings.json or via OpenTelemetry__ServiceName environment variable.");
+
+var otlpEndpoint = builder.Configuration["Otlp:Endpoint"];
+if (string.IsNullOrWhiteSpace(otlpEndpoint))
+    throw new InvalidOperationException(
+        "Otlp:Endpoint is not configured. Set it in appsettings.json or via Otlp__Endpoint environment variable.");
+
+if (!Uri.TryCreate(otlpEndpoint, UriKind.Absolute, out var otlpUri) ||
+    (otlpUri.Scheme != "http" && otlpUri.Scheme != "https"))
+    throw new InvalidOperationException(
+        $"Otlp:Endpoint must be an absolute HTTP or HTTPS URI. Current value: '{otlpEndpoint}'.");
+
+// ========== Serilog ==========
+builder.Host.UseSerilog((ctx, cfg) => cfg
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("service.name", otelServiceName)
+    .WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter()));
+
+// ========== Конвейер OpenTelemetry ==========
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(otelServiceName))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation(options =>
+            options.Filter = context => !context.Request.Path.StartsWithSegments("/metrics"))
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation()
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = otlpUri;
+            options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+        }))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddPrometheusExporter());
 
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
@@ -107,6 +153,9 @@ if (!builder.Configuration.GetValue<bool>("SkipDatabaseMigration"))
     db.Database.Migrate();
 }
 
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/metrics"),
+    branch => branch.UseSerilogRequestLogging());
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -118,10 +167,17 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/metrics"),
+    branch => branch.UseHttpsRedirection());
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ========== Endpoint метрик ==========
+app.MapPrometheusScrapingEndpoint()
+    .AllowAnonymous()
+    .DisableHttpMetrics();
 
 app.MapControllers();
 

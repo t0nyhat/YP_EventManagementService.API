@@ -104,6 +104,60 @@ Redis — приватная инфраструктура сервиса Events 
 - xUnit v3 + FluentAssertions
 - Testcontainers для интеграционных тестов
 
+## Наблюдаемость (Observability)
+
+Все три микросервиса инструментированы единым стеком OpenTelemetry и Serilog для сбора метрик, трейсов и структурированных логов.
+
+### Три сигнала
+
+| Сигнал | Назначение | Инструмент |
+|--------|-----------|------------|
+| **Метрики** | HTTP latency, throughput, error rate, активные запросы, .NET Runtime (GC, thread pool) | OpenTelemetry → Prometheus |
+| **Трейсы** | HTTP-запросы, вызовы EF Core/PostgreSQL, исходящие HTTP-вызовы | OpenTelemetry → OTLP → Jaeger |
+| **Логи** | Структурированные JSON-логи с SourceContext, service.name и trace/span ID | Serilog → Compact JSON → stdout |
+
+### Путь данных
+
+```text
+┌─────────────┐     /metrics      ┌────────────┐     PromQL      ┌──────────┐
+│  Users API  │ ────────────────► │ Prometheus │ ◄────────────── │  Grafana │
+│  Events API │ ────────────────► │ :9090      │                 │  :3000   │
+│ Bookings API│ ────────────────► └────────────┘                 │ dashboard│
+└──────┬──────┘                                                  └──────────┘
+       │
+       │ OTLP gRPC :4317
+       ▼
+┌──────────────┐
+│    Jaeger    │
+│   :16686     │
+│  trace UI    │
+└──────────────┘
+
+Все API → stdout → Compact JSON (docker compose logs | jq)
+```
+
+### Состав стека
+
+| Компонент | Образ | Назначение |
+|-----------|-------|------------|
+| Prometheus | `prom/prometheus:v2.51.0` | Хранилище и query-движок метрик |
+| Jaeger | `jaegertracing/all-in-one:1.56` | Приём и визуализация трейсов (OTLP gRPC) |
+| Grafana | `grafana/grafana:10.4.2` | Визуализация метрик через provisioned dashboard |
+
+### Service names
+
+| Сервис | `service.name` в OpenTelemetry |
+|--------|-------------------------------|
+| Users | `users-service` |
+| Events | `events-service` |
+| Bookings | `bookings-service` |
+
+### Известные ограничения
+
+- Kafka-поток между Bookings и Events **не продолжает HTTP trace**: OpenTelemetry Kafka instrumentation не входит в Sprint 11. Трейс обрывается на границе async-публикации outbox.
+- Исходящие HTTP-вызовы между сервисами отсутствуют — `AddHttpClientInstrumentation()` добавлена на перспективу.
+- `/metrics` endpoint публичный (dev-only). В production требуется ограничение сетевыми политиками или reverse proxy.
+
 ## Требования
 
 1. .NET SDK 10+
@@ -135,7 +189,21 @@ docker compose ps
 
 Для защищённых эндпоинтов нажмите `Authorize` и передайте токен в формате `Bearer <jwt>`.
 
-### 3. Запустить тесты
+### 3. Observability — адреса
+
+| Компонент | Адрес с host | Назначение |
+|-----------|-------------|------------|
+| Users metrics | `http://localhost:5101/metrics` | Prometheus text format |
+| Events metrics | `http://localhost:5102/metrics` | Prometheus text format |
+| Bookings metrics | `http://localhost:5103/metrics` | Prometheus text format |
+| Prometheus | `http://localhost:9090` | Query UI и targets |
+| Jaeger | `http://localhost:16686` | Trace search и визуализация |
+| OTLP gRPC | `localhost:4317` | Технический ingest port (внутренний) |
+| Grafana | `http://localhost:3000` | Dashboard (admin/admin, dev-only) |
+
+Grafana dashboard provisioned автоматически: папка **Event Management**, datasource UID `prometheus`.
+
+### 4. Запустить тесты
 
 ```bash
 dotnet test EventManagementService.API.sln
@@ -209,8 +277,8 @@ dotnet test EventManagementService.API.sln --filter "Category!=RequiresDocker"
 {
   "title": "Конференция .NET",
   "description": "Технологическое мероприятие",
-  "startAt": "2026-07-10T10:00:00",
-  "endAt": "2026-07-10T18:00:00",
+  "startAt": "2099-07-10T10:00:00Z",
+  "endAt": "2099-07-10T18:00:00Z",
   "totalSeats": 50
 }
 ```
@@ -346,7 +414,7 @@ docs/
    curl -X POST http://localhost:5102/events \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer <token>" \
-     -d '{"title":"Конференция","description":"Описание","startAt":"2026-07-10T10:00:00","endAt":"2026-07-10T18:00:00","totalSeats":3}'
+     -d '{"title":"Конференция","description":"Описание","startAt":"2099-07-10T10:00:00Z","endAt":"2099-07-10T18:00:00Z","totalSeats":3}'
    ```
 
 5. Зарегистрировать обычного пользователя и получить токен.
@@ -394,11 +462,136 @@ docs/
     curl -X PUT http://localhost:5102/events/{eventId} \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer <token>" \
-      -d '{"title":"Конференция (обновлено)","description":"Описание","startAt":"2026-07-10T10:00:00","endAt":"2026-07-10T18:00:00"}'
+      -d '{"title":"Конференция (обновлено)","description":"Описание","startAt":"2099-07-10T10:00:00Z","endAt":"2099-07-10T18:00:00Z"}'
 
     docker exec eventapi_redis redis-cli KEYS 'event:*'   # ключа больше нет
     ```
     `DELETE /events/{id}` инвалидирует ключ так же — после успешного сохранения.
+
+### 12. Smoke-сценарий observability
+
+После запуска полного стека (`docker compose up --build -d`) и генерации бизнес-трафика (шаги 1–8) можно проверить наблюдаемость:
+
+**Метрики каждого API:**
+
+```bash
+curl -fsS http://localhost:5101/metrics | head -20
+curl -fsS http://localhost:5102/metrics | head -20
+curl -fsS http://localhost:5103/metrics | head -20
+```
+
+**Prometheus targets (все три должны быть `UP`):**
+
+```bash
+curl -fsS "http://localhost:9090/api/v1/targets?state=active" | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
+```
+
+**Jaeger service names (после bounded ожидания batch export):**
+
+```bash
+curl -fsS http://localhost:16686/api/services | jq .
+```
+
+**Проверка связных HTTP- и SQL-трейсов всех API:**
+
+```bash
+trace_cases=(
+  'users-service|POST auth/login'
+  'events-service|GET events/{id:guid}'
+  'bookings-service|GET bookings/{id:guid}'
+)
+
+for trace_case in "${trace_cases[@]}"; do
+  service=${trace_case%%|*}
+  operation=${trace_case#*|}
+  curl -fsS -G http://localhost:16686/api/traces \
+    --data-urlencode "service=${service}" \
+    --data-urlencode "operation=${operation}" \
+    --data-urlencode 'limit=100' \
+    --data-urlencode 'lookback=1h' |
+    jq -e '
+      [.data[] | select(
+        any(.spans[]; any(.tags[]?; .key == "http.request.method" or .key == "http.method")) and
+        any(.spans[]; any(.tags[]?; .key == "db.system"))
+      )] | length > 0
+    ' >/dev/null && echo "${service}: HTTP + SQL trace OK"
+done
+```
+
+**JSON-логи (каждая строка должна парситься `jq`):**
+
+```bash
+for service in users-api events-api bookings-api; do
+  docker compose logs --no-color --no-log-prefix "$service" |
+    sed '/^[[:space:]]*$/d' |
+    jq -e . >/dev/null && echo "${service}: JSON logs OK"
+done
+```
+
+**Grafana health, provisioned datasource и dashboard:**
+
+```bash
+curl -fsS http://localhost:3000/api/health | jq -e '.database == "ok"'
+curl -fsS -u admin:admin http://localhost:3000/api/datasources/uid/prometheus |
+  jq -e '.uid == "prometheus" and .url == "http://prometheus:9090" and .isDefault == true'
+curl -fsS -u admin:admin http://localhost:3000/api/dashboards/uid/event-management-observability |
+  jq -e '
+    .dashboard.uid == "event-management-observability" and
+    (.dashboard.panels | length == 9) and
+    all(.dashboard.panels[]; .datasource.uid == "prometheus")
+  '
+```
+
+**Проверка данных всех панелей через Prometheus API:**
+
+```bash
+jq -r '
+  .panels[] | .title as $title | .targets[]? |
+  [$title, (.expr | gsub("\\$service"; "events-service") | gsub("\\$__rate_interval"; "1m"))] |
+  @tsv
+' grafana/dashboards/event-management-observability.json |
+while IFS="$(printf '\t')" read -r title query; do
+  curl -fsS -G http://localhost:9090/api/v1/query \
+    --data-urlencode "query=${query}" |
+    jq -e '.status == "success" and (.data.result | length > 0)' >/dev/null &&
+    echo "${title}: data OK"
+done
+```
+
+**Проверка отсутствия секретов в логах:**
+
+```bash
+if docker compose logs --no-color --no-log-prefix users-api events-api bookings-api |
+  grep -Eq 'admin123|replace_with_strong_32_byte_key_1234|Authorization:[[:space:]]*Bearer'; then
+  echo 'FAIL: secret found in logs'
+  exit 1
+else
+  echo 'PASS: no secrets in logs'
+fi
+```
+
+### Troubleshooting observability
+
+| Проблема | Вероятная причина | Решение |
+|----------|-------------------|---------|
+| `/metrics` возвращает `404` | OpenTelemetry Prometheus exporter не зарегистрирован | Проверить `MapPrometheusScrapingEndpoint()` в `Program.cs` |
+| Prometheus target `DOWN` | Неправильное DNS-имя или порт в `prometheus.yml` | Проверить `targets` — должны быть `users-api:8080`, `events-api:8080`, `bookings-api:8080` |
+| Jaeger не показывает сервисы | OTLP exporter не может подключиться | Проверить `Otlp__Endpoint=http://jaeger:4317` в окружении API; Jaeger должен быть запущен |
+| Пустые панели в Grafana | Нет данных в Prometheus или неверный job selector | Сгенерировать HTTP-трафик и проверить PromQL через `http://localhost:9090/api/v1/query` |
+| Grafana запрашивает datasource вручную | Provisioning не перечитан после изменения файлов | Выполнить `docker compose up -d --force-recreate grafana`, проверить `docker compose logs grafana` и datasource API из smoke-сценария |
+| `admin/admin` не принимается после повторного запуска | В существующем Grafana volume уже сохранён другой пароль | Для локального dev-стека выполнить `docker compose exec -T grafana grafana cli admin reset-admin-password admin` |
+| JSON-логи не парсятся `jq` | Serilog не настроен или используется стандартный console formatter | Проверить `UseSerilog()` и `CompactJsonFormatter` в `Program.cs` |
+| Задержка появления трейсов в Jaeger | OTLP exporter работает в batch-режиме | Подождать до 10 секунд после генерации трафика |
+| Порт `3000`, `4317`, `9090` или `16686` занят | Другой процесс использует тот же порт | Остановить конфликтующий процесс или изменить host-порт в `docker-compose.yml` |
+
+### Конфигурационные файлы observability
+
+| Файл | Назначение |
+|------|-----------|
+| [`prometheus.yml`](prometheus.yml) | Конфигурация Prometheus: scrape targets для трёх сервисов |
+| [`grafana/provisioning/datasources/prometheus.yml`](grafana/provisioning/datasources/prometheus.yml) | Datasource provisioning: Prometheus → Grafana |
+| [`grafana/provisioning/dashboards/dashboards.yml`](grafana/provisioning/dashboards/dashboards.yml) | Dashboard provider provisioning |
+| [`grafana/dashboards/event-management-observability.json`](grafana/dashboards/event-management-observability.json) | Dashboard JSON с панелями latency, throughput, error rate, GC и thread pool |
 
 ## Идемпотентность и отказоустойчивость
 
